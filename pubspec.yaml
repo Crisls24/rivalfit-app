@@ -1,0 +1,40 @@
+name: autohost
+description: "RivalFit - App de ejercicio competitivo social con verificacion IA anti-trampas"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Navigation
+  go_router: ^18.0.0
+
+  # Backend
+  supabase_flutter: ^2.8.0
+
+  # Design
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  dynamic_color: ^1.7.0
+
+  # Utils
+  flutter_dotenv: ^5.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
