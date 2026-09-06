@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
 import 'package:autohost/app/theme/app_colors.dart';
 
@@ -23,11 +25,13 @@ class SocialLoginCards extends StatelessWidget {
           icon: const _GoogleIcon(),
           onTap: onGoogleTap,
         ),
-        const SizedBox(width: 16),
-        _SocialCard(
-          icon: const Icon(Icons.apple, size: 24, color: Colors.white),
-          onTap: onAppleTap,
-        ),
+        if (Platform.isIOS) ...[
+          const SizedBox(width: 16),
+          _SocialCard(
+            icon: const Icon(Icons.apple, size: 24, color: Colors.white),
+            onTap: onAppleTap,
+          ),
+        ],
         const SizedBox(width: 16),
         _SocialCard(
           icon: const _FacebookIcon(),
@@ -76,104 +80,12 @@ class _GoogleIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return SvgPicture.asset(
+      'assets/icons/google.svg',
       width: 22,
       height: 22,
-      child: CustomPaint(
-        painter: _GooglePainter(),
-      ),
     );
   }
-}
-
-class _GooglePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..style = PaintingStyle.fill;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    // Blue
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawPath(
-      Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(center.dx + radius, center.dy)
-        ..arcTo(
-          Rect.fromCircle(center: center, radius: radius),
-          0,
-          -90 * 3.14159 / 180,
-          false,
-        )
-        ..close(),
-      paint,
-    );
-
-    // Red
-    paint.color = const Color(0xFFEA4335);
-    canvas.drawPath(
-      Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(center.dx, center.dy - radius)
-        ..arcTo(
-          Rect.fromCircle(center: center, radius: radius),
-          -90 * 3.14159 / 180,
-          -90 * 3.14159 / 180,
-          false,
-        )
-        ..close(),
-      paint,
-    );
-
-    // Green
-    paint.color = const Color(0xFF34A853);
-    canvas.drawPath(
-      Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(center.dx - radius, center.dy)
-        ..arcTo(
-          Rect.fromCircle(center: center, radius: radius),
-          180 * 3.14159 / 180,
-          -90 * 3.14159 / 180,
-          false,
-        )
-        ..close(),
-      paint,
-    );
-
-    // Yellow
-    paint.color = const Color(0xFFFBBC05);
-    canvas.drawPath(
-      Path()
-        ..moveTo(center.dx, center.dy)
-        ..lineTo(center.dx, center.dy + radius)
-        ..arcTo(
-          Rect.fromCircle(center: center, radius: radius),
-          90 * 3.14159 / 180,
-          -90 * 3.14159 / 180,
-          false,
-        )
-        ..close(),
-      paint,
-    );
-
-    // White center circle
-    paint.color = Colors.white;
-    canvas.drawCircle(center, radius * 0.38, paint);
-
-    // Blue inner arc
-    paint.color = const Color(0xFF4285F4);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius * 0.38),
-      -30 * 3.14159 / 180,
-      120 * 3.14159 / 180,
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _FacebookIcon extends StatelessWidget {

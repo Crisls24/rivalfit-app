@@ -28,6 +28,8 @@ dependencies:
 
   # Utils
   flutter_dotenv: ^5.2.1
+  video_player: ^2.14.0
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -38,3 +40,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/videos/
+    - assets/videos/Onboarding_1.mp4
+    - assets/videos/Onboarding_2.mp4
+    - assets/videos/Onboarding_3.mp4
+    - assets/images/
+    - assets/icons/
+

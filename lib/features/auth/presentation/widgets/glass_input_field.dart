@@ -15,6 +15,9 @@ class GlassInputField extends StatelessWidget {
   final int? maxLength;
   final bool readOnly;
   final VoidCallback? onTap;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const GlassInputField({
     super.key,
@@ -30,6 +33,9 @@ class GlassInputField extends StatelessWidget {
     this.maxLength,
     this.readOnly = false,
     this.onTap,
+    this.textInputAction,
+    this.onChanged,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -50,6 +56,9 @@ class GlassInputField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          onChanged: onChanged,
+          onFieldSubmitted: onFieldSubmitted,
           validator: validator,
           inputFormatters: inputFormatters,
           maxLength: maxLength,
