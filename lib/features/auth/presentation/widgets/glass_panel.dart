@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:autohost/app/theme/app_colors.dart';
+import 'package:rivalfit/app/theme/app_colors.dart';
 
 class GlassPanel extends StatelessWidget {
   final Widget child;

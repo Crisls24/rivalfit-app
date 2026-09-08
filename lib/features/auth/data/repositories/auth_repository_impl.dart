@@ -1,8 +1,9 @@
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
-import 'package:autohost/features/auth/domain/entities/user.dart' as domain;
-import 'package:autohost/features/auth/domain/repositories/auth_repository.dart';
-import 'package:autohost/core/error/failures.dart';
-import 'package:autohost/features/auth/data/datasources/supabase_auth_data_source.dart';
+import 'package:rivalfit/features/auth/domain/entities/user.dart' as domain;
+import 'package:rivalfit/features/auth/domain/repositories/auth_repository.dart';
+import 'package:rivalfit/core/error/failures.dart';
+import 'package:rivalfit/features/auth/data/datasources/supabase_auth_data_source.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final SupabaseAuthDataSource dataSource;
@@ -112,6 +113,60 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<({domain.User? user, Failure? error})> completeProfile({
+    required String displayName,
+    required domain.FitnessLevel fitnessLevel,
+    required double weightKg,
+    required int heightCm,
+    String? avatarUrl,
+  }) async {
+    try {
+      await dataSource.updateUserMetadata({
+        'display_name': displayName,
+        'fitness_level': fitnessLevel.storageValue,
+        'weight_kg': weightKg,
+        'height_cm': heightCm,
+        'is_profile_complete': true,
+        'avatar_url': ?avatarUrl,
+      });
+      final user = _mapUser(dataSource.getCurrentSupabaseUser());
+      return (user: user, error: null);
+    } on supabase.AuthException catch (e) {
+      return (user: null, error: AuthFailure(message: e.message));
+    } catch (e) {
+      return (user: null, error: ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<({domain.User? user, Failure? error})> skipProfile() async {
+    try {
+      await dataSource.updateUserMetadata({'is_profile_complete': false});
+      final user = _mapUser(dataSource.getCurrentSupabaseUser());
+      return (user: user, error: null);
+    } on supabase.AuthException catch (e) {
+      return (user: null, error: AuthFailure(message: e.message));
+    } catch (e) {
+      return (user: null, error: ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<({String? url, Failure? error})> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    try {
+      final url = await dataSource.uploadAvatar(bytes: bytes, fileName: fileName);
+      return (url: url, error: null);
+    } on supabase.AuthException catch (e) {
+      return (url: null, error: AuthFailure(message: e.message));
+    } catch (e) {
+      return (url: null, error: ServerFailure(message: e.toString()));
+    }
+  }
+
   domain.User? _mapUser(supabase.User? sbUser) {
     if (sbUser == null) return null;
     final metadata = sbUser.userMetadata ?? {};
@@ -122,6 +177,10 @@ class AuthRepositoryImpl implements AuthRepository {
       photoUrl: metadata['avatar_url'],
       authProvider: _mapProvider(sbUser.appMetadata['provider']),
       createdAt: DateTime.parse(sbUser.createdAt),
+      isProfileComplete: metadata['is_profile_complete'] == true,
+      fitnessLevel: domain.FitnessLevel.fromStorage(metadata['fitness_level'] as String?),
+      weightKg: (metadata['weight_kg'] as num?)?.toDouble(),
+      heightCm: (metadata['height_cm'] as num?)?.toInt(),
     );
   }
 

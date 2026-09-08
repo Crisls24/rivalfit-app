@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:autohost/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:autohost/features/auth/presentation/widgets/glass_background.dart';
-import 'package:autohost/app/theme/app_colors.dart';
+import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:rivalfit/features/auth/presentation/widgets/glass_background.dart';
+import 'package:rivalfit/app/theme/app_colors.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});

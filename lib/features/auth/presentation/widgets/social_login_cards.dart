@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:ui';
-import 'package:autohost/app/theme/app_colors.dart';
+import 'package:rivalfit/app/theme/app_colors.dart';
 
 class SocialLoginCards extends StatelessWidget {
   final VoidCallback? onGoogleTap;

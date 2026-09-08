@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseAuthDataSource {
@@ -30,26 +31,51 @@ class SupabaseAuthDataSource {
   Future<bool> signInWithGoogle() async {
     return await _auth.signInWithOAuth(
       OAuthProvider.google,
-      redirectTo: 'io.autohost://login-callback',
+      redirectTo: 'com.rivalfit.rivalfit://login-callback',
     );
   }
 
   Future<bool> signInWithApple() async {
     return await _auth.signInWithOAuth(
       OAuthProvider.apple,
-      redirectTo: 'io.autohost://login-callback',
+      redirectTo: 'com.rivalfit.rivalfit://login-callback',
     );
   }
 
   Future<bool> signInWithFacebook() async {
     return await _auth.signInWithOAuth(
       OAuthProvider.facebook,
-      redirectTo: 'io.autohost://login-callback',
+      redirectTo: 'com.rivalfit.rivalfit://login-callback',
     );
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  /// Actualiza el user_metadata del usuario autenticado.
+  Future<void> updateUserMetadata(Map<String, dynamic> metadata) async {
+    await _auth.updateUser(UserAttributes(data: metadata));
+  }
+
+  /// Sube la foto de perfil al bucket 'avatars' y devuelve su URL publica.
+  Future<String> uploadAvatar({
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final userId = _auth.currentUser?.id;
+    if (userId == null) {
+      throw const AuthException('No autenticado');
+    }
+    final ext = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : 'jpg';
+    final path =
+        'public/$userId/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: false));
+    return _client.storage.from('avatars').getPublicUrl(path);
   }
 
   User? getCurrentSupabaseUser() {

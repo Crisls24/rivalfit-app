@@ -2,16 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-class AppSpacing {
-  AppSpacing._();
-  static const double xs = 4;
-  static const double sm = 8;
-  static const double md = 16;
-  static const double lg = 24;
-  static const double xl = 32;
-  static const double xxl = 48;
-}
-
 class AppTheme {
   AppTheme._();
 
@@ -113,10 +103,7 @@ class AppTheme {
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.danger),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.md,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         labelStyle: const TextStyle(color: AppColors.textGray),
         hintStyle: const TextStyle(color: AppColors.textPlaceholder),
         prefixIconColor: AppColors.inputIcon,

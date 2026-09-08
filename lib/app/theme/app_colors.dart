@@ -17,7 +17,6 @@ class AppColors {
   // Glass panel
   static const Color glassBorder = Color(0x33FFFFFF);
   static const Color glassBackground = Color(0x1AFFFFFF);
-  static const Color glassHighlight = Color(0x0DFFFFFF);
 
   // Inputs
   static const Color inputBackground = Color(0x33FFFFFF);
@@ -47,6 +46,21 @@ class AppColors {
 
   // Semantic
   static const Color success = Color(0xFF2E7D32);
-  static const Color warning = Color(0xFFF57C00);
-  static const Color info = Color(0xFF1565C0);
+
+  // Brutal / Modo Bestia
+  static const Color volt = Color(0xFFCCFF00);
+  static const Color asphalt = Color(0xFF121212);
+  static const Color brutalCard = Color(0xFF1E1E1E);
+
+  // Nivel de entrenamiento (acentos por nivel)
+  static const Color intermediateOrange = Color(0xFFFF7A00);
+  static const Color advancedCoral = Color(0xFFFF3B30);
+
+  // Clean White Sports
+  static const Color carbon = Color(0xFF111111);
+  static const Color iceBackground = Color(0xFFF8F9FA);
+  static const Color grayMain = Color(0xFF666666);
+  static const Color subtleBorder = Color(0xFFE5E5EA);
+  static const Color avatarBackground = Color(0xFFF0F0F2);
+  static const Color panelSoft = Color(0xFFF4F4F6);
 }

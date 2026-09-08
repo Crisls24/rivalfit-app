@@ -1,17 +1,32 @@
-# autohost
+# RivalFit
 
-A new Flutter project.
+App de ejercicio competitivo social con verificacion IA anti-trampas.
 
-## Getting Started
+Convierte el ejercicio diario en una competencia entre amigos: rankings
+semanales, desafios 1v1 y verificacion de repeticiones por vision
+artificial on-device (anti-trampas), con soporte de smartwatch (Wear OS /
+watchOS) para ejercicios de cardio.
 
-This project is a starting point for a Flutter application.
+## Stack
 
-A few resources to get you started if this is your first Flutter project:
+- **Frontend:** Flutter (Dart) — Riverpod, GoRouter, Supabase Flutter SDK
+- **Backend:** Supabase self-hosted (PostgreSQL, Auth, Realtime, Edge Functions)
+- **Notificaciones:** FCM HTTP v1
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Plataformas
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Android 10+ / iOS 15+.
+
+## Desarrollo
+
+```sh
+flutter pub get
+flutter run
+```
+
+La URL de Supabase se configura por `--dart-define`:
+
+```sh
+flutter run --dart-define=SUPABASE_URL=https://fit-api.iscx.site \
+  --dart-define=SUPABASE_ANON_KEY=<anon_key>
+```

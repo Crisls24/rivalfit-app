@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:autohost/app/theme/app_colors.dart';
+import 'package:rivalfit/app/theme/app_colors.dart';
+import '../controllers/auth_controller.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/glass_input_field.dart';
@@ -11,14 +13,14 @@ import '../widgets/social_login_cards.dart';
 
 enum _UsernameStatus { none, checking, available }
 
-class SignUpPage extends StatefulWidget {
+class SignUpPage extends ConsumerStatefulWidget {
   const SignUpPage({super.key});
 
   @override
-  State<SignUpPage> createState() => _SignUpPageState();
+  ConsumerState<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignUpPageState extends ConsumerState<SignUpPage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -27,6 +29,7 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _obscurePassword = true;
   bool _acceptedTerms = false;
   _UsernameStatus _usernameStatus = _UsernameStatus.none;
+  bool _submitting = false;
   // Cached strength for password field to avoid recalculating on every build
   _PasswordStrength _passwordStrength = _PasswordStrength.none;
   Timer? _debounceTimer;
@@ -116,14 +119,14 @@ class _SignUpPageState extends State<SignUpPage> {
   void _handleSignUp() {
     if (!_formKey.currentState!.validate()) return;
     if (!_acceptedTerms) return;
+    FocusScope.of(context).unfocus();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('¡Cuenta creada con éxito!'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    context.go('/home');
+    setState(() => _submitting = true);
+    ref.read(authControllerProvider.notifier).signUpWithEmail(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+          displayName: _nameController.text.trim(),
+        );
   }
 
   _PasswordStrength _getPasswordStrength(String password) {
@@ -142,9 +145,25 @@ class _SignUpPageState extends State<SignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      if (_submitting) setState(() => _submitting = false);
+      if (next.status == AuthStatus.authenticated) {
+        context.go('/home');
+      }
+      if (next.status == AuthStatus.error && next.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+        ref.read(authControllerProvider.notifier).clearError();
+      }
+    });
 
     return Scaffold(
       body: GlassBackground(
+        animatedAurora: true,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -333,7 +352,9 @@ class _SignUpPageState extends State<SignUpPage> {
                       // Sign up button
                       GradientButton(
                         text: 'Crear Cuenta',
-                        onPressed: _acceptedTerms ? _handleSignUp : null,
+                        isLoading: _submitting,
+                        onPressed:
+                            _acceptedTerms && !_submitting ? _handleSignUp : null,
                       ),
                       const SizedBox(height: 24),
 

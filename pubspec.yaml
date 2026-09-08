@@ -1,4 +1,4 @@
-name: autohost
+name: rivalfit
 description: "RivalFit - App de ejercicio competitivo social con verificacion IA anti-trampas"
 publish_to: 'none'
 version: 1.0.0+1
@@ -24,12 +24,11 @@ dependencies:
   # Design
   google_fonts: ^6.2.1
   flutter_animate: ^4.5.2
-  dynamic_color: ^1.7.0
 
   # Utils
-  flutter_dotenv: ^5.2.1
   video_player: ^2.14.0
   flutter_svg: ^2.3.0
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +44,5 @@ flutter:
     - assets/videos/Onboarding_1.mp4
     - assets/videos/Onboarding_2.mp4
     - assets/videos/Onboarding_3.mp4
-    - assets/images/
     - assets/icons/
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:autohost/app/theme/app_colors.dart';
+import 'package:rivalfit/app/theme/app_colors.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/glass_panel.dart';
@@ -60,6 +60,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       body: GlassBackground(
+        animatedAurora: true,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -71,6 +72,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 child: Form(
                   key: _formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -101,13 +103,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         label: 'Usuario',
                         hint: 'Usuario',
                         keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
                         prefixIcon: Icons.person_outline,
+                        maxLength: 50,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Ingresa tu correo';
                           }
-                          if (!value.contains('@')) {
-                            return 'Correo inválido';
+                          final emailRegex = RegExp(
+                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                          );
+                          if (!emailRegex.hasMatch(value.trim())) {
+                            return 'Ingresa un correo válido';
                           }
                           return null;
                         },
@@ -120,6 +127,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         hint: 'Contraseña',
                         obscureText: _obscurePassword,
                         prefixIcon: Icons.lock_outline,
+                        maxLength: 25,
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -136,8 +144,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           if (value == null || value.isEmpty) {
                             return 'Ingresa tu contraseña';
                           }
-                          if (value.length < 6) {
-                            return 'Mínimo 6 caracteres';
+                          if (value.length < 8) {
+                            return 'Mínimo 8 caracteres';
                           }
                           return null;
                         },

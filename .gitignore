@@ -59,9 +59,8 @@ PROGRESS.md
 PRD.tex
 PRD.pdf
 
-# Design files
-*.PNG
-*.png
+# Design files (carpeta de diseno; los PNG de la app SI se versionan)
+design/
 
 # Build artifacts
 *.apk
