@@ -24,6 +24,11 @@ abstract class AuthRepository {
 
   Future<({User? user, Failure? error})> getCurrentUser();
 
+  /// Stream de cambios de sesion. Fuente de verdad del flujo OAuth: cuando el
+  /// navegador regresa por el deep link, se emite la sesion cerrada. El valor
+  /// es null cuando la sesion termina (sign out).
+  Stream<User?> get onAuthStateChange;
+
   /// Guarda el perfil completo y marca is_profile_complete = true.
   Future<({User? user, Failure? error})> completeProfile({
     required String displayName,

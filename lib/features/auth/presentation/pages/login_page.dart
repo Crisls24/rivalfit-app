@@ -197,9 +197,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onAppleTap: () {
                           // TODO: Apple sign in
                         },
-                        onFacebookTap: () {
-                          // TODO: Facebook sign in
-                        },
+                        onFacebookTap: () => ref
+                            .read(authControllerProvider.notifier)
+                            .signInWithFacebook(),
                       ),
                       const SizedBox(height: 24),
                       // Sign up link

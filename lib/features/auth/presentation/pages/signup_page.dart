@@ -364,15 +364,15 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
                       // Social login
                       SocialLoginCards(
-                        onGoogleTap: () {
-                          // TODO: Google sign up
-                        },
+                        onGoogleTap: () => ref
+                            .read(authControllerProvider.notifier)
+                            .signInWithGoogle(),
                         onAppleTap: () {
                           // TODO: Apple sign up
                         },
-                        onFacebookTap: () {
-                          // TODO: Facebook sign up
-                        },
+                        onFacebookTap: () => ref
+                            .read(authControllerProvider.notifier)
+                            .signInWithFacebook(),
                       ),
                       const SizedBox(height: 24),
 

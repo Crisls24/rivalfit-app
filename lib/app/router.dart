@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
@@ -8,14 +9,21 @@ import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authControllerProvider);
+  // El GoRouter se crea UNA sola vez. Si se recreara en cada cambio de estado
+  // de auth (registryProvider viendo authControllerProvider), un nuevo GoRouter
+  // arranca en initialLocation y tira al usuario a /onboarding justo al
+  // presionar un boton social. En su lugar, refreshListenable re-evalua el
+  // redirect sin perder la ruta actual.
+  final authRefresh = ValueNotifier<int>(0);
+  ref.listen<AuthState>(authControllerProvider, (_, _) {
+    authRefresh.value++;
+  });
 
   return GoRouter(
-    // Flujo real: la app arranca en Onboarding. Si hay sesion activa, el
-    // redirect lleva directo a /home o a /complete-profile (perfil pendiente).
     initialLocation: '/onboarding',
+    refreshListenable: authRefresh,
     redirect: (context, state) =>
-        _resolveRedirect(authState, state.matchedLocation),
+        _resolveRedirect(ref.read(authControllerProvider), state.matchedLocation),
     routes: [
       GoRoute(
         path: '/onboarding',

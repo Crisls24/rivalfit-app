@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:ui';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
 class SocialLoginCards extends StatelessWidget {
@@ -52,24 +51,18 @@ class _SocialCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-          child: Container(
-            width: 72,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.socialCardBg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: AppColors.socialCardBorder,
-                width: 0.5,
-              ),
-            ),
-            child: Center(child: icon),
+      child: Container(
+        width: 72,
+        height: 56,
+        decoration: BoxDecoration(
+          color: AppColors.socialCardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.socialCardBorder,
+            width: 0.5,
           ),
         ),
+        child: Center(child: icon),
       ),
     );
   }

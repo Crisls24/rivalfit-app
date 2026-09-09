@@ -9,6 +9,11 @@ class SupabaseAuthDataSource {
 
   GoTrueClient get _auth => _client.auth;
 
+  /// Stream de cambios de sesion (sign-in, sign-out, token refresh y callback
+  /// de OAuth). Fuente de verdad del flujo OAuth: cuando el navegador vuelve
+  /// por el deep link, la sesion se completa aqui.
+  Stream<AuthState> get authStateChanges => _auth.onAuthStateChange;
+
   Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,

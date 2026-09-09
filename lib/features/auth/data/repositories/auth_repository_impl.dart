@@ -114,6 +114,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Stream<domain.User?> get onAuthStateChange =>
+      dataSource.authStateChanges.map((state) => _mapUser(state.session?.user));
+
+  @override
   Future<({domain.User? user, Failure? error})> completeProfile({
     required String displayName,
     required domain.FitnessLevel fitnessLevel,

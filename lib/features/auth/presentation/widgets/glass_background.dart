@@ -342,23 +342,24 @@ class _FloatingParticles extends StatelessWidget {
     };
 
     return Positioned(
-      left: constraints.maxWidth * x - size / 2,
+      left: constraints.maxWidth * x - size * 3 / 2,
       bottom: constraints.maxHeight * progress,
       child: Opacity(
         opacity: opacity,
         child: Container(
-          width: size,
-          height: size,
+          // Halo suave con gradiente radial: mucho mas barato de pintar que
+          // un BoxShadow con blur (la aurora repinta toda la pantalla cada
+          // frame y las sombras eran el costo dominante).
+          width: size * 3,
+          height: size * 3,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: color,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.5),
-                blurRadius: size * 1.5,
-                spreadRadius: size * 0.3,
-              ),
-            ],
+            gradient: RadialGradient(
+              colors: [
+                color.withValues(alpha: 0.5),
+                color.withValues(alpha: 0.0),
+              ],
+            ),
           ),
         ),
       ),
