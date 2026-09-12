@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "RivalFit (Supabase dev)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=SUPABASE_URL=https://fit-api.iscx.site",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3NTQ3NTkzLCJleHAiOjE5NDUyMjc1OTN9.aBEIQEPBw-Q8cPlb4BY2PHLyiiJW-ZPOAh2D3NdnUWA"
+      ]
+    }
+  ]
+}

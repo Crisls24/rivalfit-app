@@ -70,3 +70,8 @@ design/
 # Generated files
 *.g.dart
 *.freezed.dart
+
+# FVM (Flutter version manager)
+# .fvm/fvm_config.json se versiona; solo se ignoran los SDK descargados
+.fvm/flutter_sdk/
+.fvm/versions/
