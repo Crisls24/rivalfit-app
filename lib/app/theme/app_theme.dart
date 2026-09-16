@@ -10,7 +10,7 @@ class AppTheme {
       seedColor: AppColors.primary,
       brightness: Brightness.dark,
       primary: AppColors.primary,
-      secondary: AppColors.accent,
+      secondary: AppColors.primary,
       error: AppColors.danger,
       surface: AppColors.backgroundDark,
     );
@@ -23,7 +23,7 @@ class AppTheme {
       seedColor: AppColors.primary,
       brightness: Brightness.dark,
       primary: AppColors.primary,
-      secondary: AppColors.accent,
+      secondary: AppColors.primary,
       error: AppColors.danger,
       surface: AppColors.backgroundDark,
     );

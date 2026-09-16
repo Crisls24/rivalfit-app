@@ -4,15 +4,11 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 
 class GlassBackground extends StatefulWidget {
   final Widget child;
-  final bool showBaseGradient;
-  final bool showDecorations;
   final bool animatedAurora;
 
   const GlassBackground({
     super.key,
     required this.child,
-    this.showBaseGradient = true,
-    this.showDecorations = true,
     this.animatedAurora = false,
   });
 
@@ -54,17 +50,11 @@ class _GlassBackgroundState extends State<GlassBackground>
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.showBaseGradient && !widget.showDecorations) {
-      return widget.child;
-    }
-
-    final showAurora = widget.showDecorations && widget.animatedAurora;
-
     return Stack(
       children: [
-        if (widget.showBaseGradient) const _BaseGradient(),
+        const _BaseGradient(),
 
-        if (showAurora)
+        if (widget.animatedAurora)
           Positioned.fill(
             child: RepaintBoundary(
               child: AnimatedBuilder(
@@ -85,7 +75,7 @@ class _GlassBackgroundState extends State<GlassBackground>
               ),
             ),
           )
-        else if (widget.showDecorations) ...[
+        else ...[
           const _StaticBlobs(),
           const _StaticStarField(),
         ],
@@ -120,7 +110,7 @@ class _BaseGradient extends StatelessWidget {
           colors: [
             AppColors.backgroundDeep,
             AppColors.backgroundDark,
-            Color(0xFF1E0835),
+            Color(0xFF161616),
           ],
         ),
       ),
@@ -128,7 +118,8 @@ class _BaseGradient extends StatelessWidget {
   }
 }
 
-/// Blobs estaticos del modo clasico.
+/// Blobs estaticos del modo clasico. Neutros, con una sola nota lima sutil
+/// abajo-izquierda: el fondo es negro limpio, el neon escasea.
 class _StaticBlobs extends StatelessWidget {
   const _StaticBlobs();
 
@@ -136,43 +127,43 @@ class _StaticBlobs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: const [
-        // Gran nube purpura arriba-izquierda
+        // Neutro arriba-izquierda
         Positioned(
           top: -120,
           left: -100,
           child: _Blob(
             size: 380,
-            color: AppColors.glowPurple,
+            color: AppColors.glowNeutral,
             alpha: 0.28,
           ),
         ),
-        // Nube rosa-fucsia abajo-derecha
+        // Neutro abajo-derecha
         Positioned(
           bottom: -140,
           right: -100,
           child: _Blob(
             size: 420,
-            color: AppColors.glowPink,
+            color: AppColors.glowNeutral,
             alpha: 0.22,
           ),
         ),
-        // Nube primary abajo-izquierda
+        // Toque lima abajo-izquierda (energia de marca, contenida)
         Positioned(
           bottom: 60,
           left: -80,
           child: _Blob(
             size: 280,
-            color: AppColors.primary,
-            alpha: 0.15,
+            color: AppColors.glowLime,
+            alpha: 0.05,
           ),
         ),
-        // Toque rosa pequeno arriba-derecha
+        // Neutro pequeno arriba-derecha
         Positioned(
           top: 80,
           right: -60,
           child: _Blob(
             size: 220,
-            color: AppColors.accent,
+            color: AppColors.glowNeutral,
             alpha: 0.14,
           ),
         ),
@@ -227,43 +218,43 @@ class _AuroraField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Blob A: purpura arriba-izquierda
+        // Blob A: neutro arriba-izquierda
         Positioned(
           left: -100 + _wave(t, 1.0, 0.0) * 130,
           top: -120 + _wave(t, 0.8, 0.3) * 80,
           child: _Blob(
             size: 380 + _wave(t, 0.5, 0.6) * 55,
-            color: AppColors.glowPurple,
+            color: AppColors.glowNeutral,
             alpha: (0.30 + _wave(t, 0.6, 1.2) * 0.06).clamp(0.05, 0.36),
           ),
         ),
-        // Blob B: rosa abajo-derecha
+        // Blob B: neutro abajo-derecha
         Positioned(
           right: -100 + _wave(t, 0.9, 0.5) * 115,
           bottom: -140 + _wave(t, 0.7, 0.1) * 90,
           child: _Blob(
             size: 420 + _wave(t, 0.4, 0.8) * 65,
-            color: AppColors.glowPink,
+            color: AppColors.glowNeutral,
             alpha: (0.24 + _wave(t, 0.5, 0.4) * 0.06).clamp(0.05, 0.30),
           ),
         ),
-        // Blob C: primary abajo-izquierda
+        // Blob C: toque lima abajo-izquierda (energia contenida)
         Positioned(
           left: -80 + _wave(t, 0.7, 0.3) * 80,
           bottom: 60 + _wave(t, 0.6, 0.9) * 100,
           child: _Blob(
             size: 280 + _wave(t, 0.4, 0.2) * 45,
-            color: AppColors.primary,
-            alpha: (0.16 + _wave(t, 0.5, 0.7) * 0.05).clamp(0.04, 0.22),
+            color: AppColors.glowLime,
+            alpha: (0.06 + _wave(t, 0.5, 0.7) * 0.03).clamp(0.02, 0.09),
           ),
         ),
-        // Blob D: accent arriba-derecha (pequeno)
+        // Blob D: neutro pequeno arriba-derecha
         Positioned(
           right: -60 + _wave(t, 0.9, 0.7) * 90,
           top: 80 + _wave(t, 0.6, 0.5) * 60,
           child: _Blob(
             size: 220 + _wave(t, 0.5, 1.1) * 40,
-            color: AppColors.accent,
+            color: AppColors.glowNeutral,
             alpha: (0.15 + _wave(t, 0.7, 0.2) * 0.05).clamp(0.04, 0.20),
           ),
         ),
@@ -279,7 +270,7 @@ class _FloatingParticles extends StatelessWidget {
   const _FloatingParticles({required this.t});
 
   // (left%, rise offset, speed, sway, swayFreq, phase, size, baseOpacity, tint)
-  // tint: 0 = blanco, 1 = rosa, 2 = purpura
+  // tint: 0 = blanco, 1 = blanco, 2 = lima
   static const List<(double, double, double, double, double, double, double,
       double, int)> _particles = [
     (0.06, 0.05, 0.30, 0.04, 0.5, 0.0, 3.0, 0.60, 2),
@@ -336,8 +327,8 @@ class _FloatingParticles extends StatelessWidget {
         .clamp(0.08, baseOpacity);
 
     final color = switch (tint) {
-      1 => AppColors.glowPink,
-      2 => AppColors.glowPurple,
+      1 => Colors.white,
+      2 => AppColors.glowLime,
       _ => Colors.white,
     };
 
@@ -465,6 +456,7 @@ class _FloatingStarField extends StatelessWidget {
 }
 
 /// Resplandor suave detras del area central (donde va el panel) que respira.
+/// Lima, muy contenida: la nota de marca sobre el negro.
 class _CenterGlow extends StatelessWidget {
   final double t;
 
@@ -472,15 +464,15 @@ class _CenterGlow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final alpha = (0.12 + 0.05 * _wave(t, 0.9, 1.2)).clamp(0.05, 0.18);
+    final alpha = (0.06 + 0.03 * _wave(t, 0.9, 1.2)).clamp(0.03, 0.10);
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(
           center: const Alignment(0, 0.05),
           radius: 0.78,
           colors: [
-            AppColors.primary.withValues(alpha: alpha),
-            AppColors.glowPurple.withValues(alpha: alpha * 0.35),
+            AppColors.glowLime.withValues(alpha: alpha),
+            AppColors.glowLime.withValues(alpha: alpha * 0.35),
             Colors.transparent,
           ],
           stops: const [0.0, 0.55, 1.0],

@@ -1,13 +1,17 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import '../controllers/auth_controller.dart';
+import '../controllers/auth_providers.dart';
+import '../controllers/recovery_controller.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/glass_panel.dart';
 import '../widgets/glass_input_field.dart';
-import '../widgets/gradient_button.dart';
+import '../widgets/primary_button.dart';
 import '../widgets/auth_divider.dart';
+import '../widgets/brand_mark.dart';
 import '../widgets/social_login_cards.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -41,7 +45,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
-    final colorScheme = Theme.of(context).colorScheme;
+
+    // Mensaje post-recuperacion: la clave se actualizo y ya puede iniciar.
+    ref.listen<RecoveryState>(recoveryControllerProvider, (prev, next) {
+      if (next.justCompleted && !(prev?.justCompleted ?? false)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Contraseña actualizada. Inicia sesión.'),
+            backgroundColor: AppColors.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        ref.read(recoveryControllerProvider.notifier).reset();
+      }
+    });
 
     ref.listen<AuthState>(authControllerProvider, (prev, next) {
       if (next.status == AuthStatus.authenticated) {
@@ -51,7 +68,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
-            backgroundColor: colorScheme.error,
+            backgroundColor: AppColors.danger,
           ),
         );
         ref.read(authControllerProvider.notifier).clearError();
@@ -60,7 +77,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       body: GlassBackground(
-        animatedAurora: true,
+        animatedAurora: false,
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
@@ -76,6 +93,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Marca: unidad visual RIVALFIT (cuadrado lima + rayo)
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          BrandMark(size: 26),
+                          SizedBox(width: 9),
+                          Text(
+                            'RIVALFIT',
+                            style: TextStyle(
+                              color: AppColors.textWhite,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
                       // Title
                       const Text(
                         '¡Bienvenido!',
@@ -156,29 +191,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed: () {
-                            // TODO: Forgot password
+                            ref.read(authControllerProvider.notifier)
+                                .setRecovering(true);
+                            context.push('/recover');
                           },
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 0,
+                              horizontal: 8,
                               vertical: 8,
                             ),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: const Text(
-                            '¿Olvidaste tu contraseña?',
-                            style: TextStyle(
-                              color: AppColors.textGray,
+                            foregroundColor: AppColors.textGray,
+                            textStyle: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
+                          child: const Text('¿Olvidaste tu contraseña?'),
                         ),
                       ),
                       const SizedBox(height: 12),
                       // Login button
-                      GradientButton(
+                      PrimaryButton(
                         text: 'Iniciar sesión',
                         isLoading: authState.status == AuthStatus.loading,
                         onPressed: authState.status == AuthStatus.loading
@@ -203,28 +236,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const SizedBox(height: 24),
                       // Sign up link
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            '¿No tienes cuenta? ',
-                            style: TextStyle(
+Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Text.rich(
+                          TextSpan(
+                            style: const TextStyle(
                               color: AppColors.textGray,
                               fontSize: 13,
                             ),
-                          ),
-                          GestureDetector(
-                            onTap: () => context.push('/signup'),
-                            child: const Text(
-                              'Registrate',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                            children: [
+                              const TextSpan(text: '¿No tienes cuenta? '),
+                              TextSpan(
+                                text: 'Regístrate',
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = () => context.push('/signup'),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ],
                   ),

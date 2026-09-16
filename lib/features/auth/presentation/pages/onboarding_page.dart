@@ -3,9 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import '../widgets/glass_background.dart';
-import '../widgets/gradient_button.dart';
+import '../widgets/primary_button.dart';
 
+/// Onboarding de 3 slides con video de fondo. Los videos se decodifican de
+/// forma lazy (solo el slide activo) y el cruce hace crossfade sincronizado
+/// con el gesto del PageView.
 class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
@@ -41,33 +43,56 @@ class _OnboardingPageState extends State<OnboardingPage> {
     ),
   ];
 
-  late final List<VideoPlayerController> _controllers;
+  /// Controladores de video por pagina (null = aun sin inicializar). Solo el
+  /// slide actual se decodifica; el resto carga bajo demanda al navegar.
+  late final List<VideoPlayerController?> _controllers =
+      List.filled(_pages.length, null);
 
   @override
   void initState() {
     super.initState();
-    _initVideoControllers();
+    _ensureVideo(0);
   }
 
-  void _initVideoControllers() {
-    _controllers = _pages.map((page) {
-      return VideoPlayerController.asset(page.videoPath);
-    }).toList();
+  /// Crea e inicializa el controlador de [index] si aun no existe. Al quedar
+  /// listo, reproduce solo si [index] es la pagina actual.
+  void _ensureVideo(int index) {
+    final existing = _controllers[index];
+    if (existing != null) return;
 
-    for (int i = 0; i < _controllers.length; i++) {
-      final controller = _controllers[i];
+    final controller = VideoPlayerController.asset(_pages[index].videoPath);
+    _controllers[index] = controller;
 
-      controller.initialize().then((_) {
-        if (!mounted) return;
-        controller.setLooping(true);
-        controller.setVolume(0.0);
-        if (_currentPage == i) {
-          controller.play();
-        }
+    controller.initialize().then((_) {
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      controller.setLooping(true);
+      controller.setVolume(0.0);
+      if (_currentPage == index) {
+        controller.play();
         setState(() {});
-      }).catchError((error) {
-        debugPrint('Error inicializando video $i (${_pages[i].videoPath}): $error');
-      });
+      }
+    }).catchError((Object error) {
+      debugPrint(
+          'Error inicializando video $index (${_pages[index].videoPath}): $error');
+      if (identical(_controllers[index], controller)) {
+        _controllers[index] = null;
+      }
+      controller.dispose();
+    });
+  }
+
+/// Reproduce el video de [index]; si aun no esta listo, lo crea y la reproduccion
+/// la completa [_ensureVideo] al terminar de inicializar.
+  void _activeVideo(int index) {
+    final controller = _controllers[index];
+    if (controller != null && controller.value.isInitialized) {
+      controller.seekTo(Duration.zero);
+      controller.play();
+    } else {
+      _ensureVideo(index);
     }
   }
 
@@ -75,14 +100,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
     if (_currentPage == index) return;
 
     // Pausar video anterior
-    if (_controllers[_currentPage].value.isInitialized) {
-      _controllers[_currentPage].pause();
+    final previous = _controllers[_currentPage];
+    if (previous != null && previous.value.isInitialized) {
+      previous.pause();
     }
-    // Reproducir nuevo video desde el inicio
-    if (_controllers[index].value.isInitialized) {
-      _controllers[index].seekTo(Duration.zero);
-      _controllers[index].play();
-    }
+
+    _activeVideo(index);
 
     setState(() {
       _currentPage = index;
@@ -104,7 +127,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   void dispose() {
     _pageController.dispose();
     for (final controller in _controllers) {
-      controller.dispose();
+      controller?.dispose();
     }
     super.dispose();
   }
@@ -116,10 +139,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Capa de Video (Fondo a pantalla completa)
+          // 1. Video de fondo
           _buildVideoBackgroundLayer(),
 
-          // 2. Capa de Oscurecimiento con degradado sutil para legibilidad sin opacar el video
+          // 2. Oscurecimiento para legibilidad del video
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -135,14 +158,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
 
-          // 3. Capa de Contenido limpia
-          GlassBackground(
-            showBaseGradient: false,
-            showDecorations: false,
-            child: SafeArea(
-              child: Column(
-                children: [
-                  // Botón "Saltar" en esquina superior derecha
+          // 3. Contenido
+          SafeArea(
+            child: Column(
+              children: [
                   Align(
                     alignment: Alignment.topRight,
                     child: Padding(
@@ -161,7 +180,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
 
-                  // Contenido interactivo central con PageView
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
@@ -174,18 +192,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
 
-                  // Indicador y botón inferior
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Indicador de página dinámico (3 puntitos)
                         _buildPageIndicator(),
                         const SizedBox(height: 24),
 
-                        // Botón principal de acción
-                        GradientButton(
+                        PrimaryButton(
                           text: _currentPage == _pages.length - 1
                               ? 'Empezar'
                               : 'Siguiente',
@@ -197,77 +212,83 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
       ),
     );
   }
 
-  /// Construye el fondo de video cubriendo el 100% de la pantalla (BoxFit.cover)
-  /// de forma centrada y sin distorsión.
+  /// Crossfade del video atado al gesto: pagina actual y vecina conviven y su
+  /// opacidad sigue el offset del PageView (sin cortes secos al deslizar).
   Widget _buildVideoBackgroundLayer() {
-    return Stack(
-      fit: StackFit.expand,
-      children: List.generate(_controllers.length, (index) {
-        final controller = _controllers[index];
-        final isCurrent = _currentPage == index;
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, _) {
+        final double pos = _pageController.hasClients
+            ? (_pageController.page ?? _currentPage.toDouble())
+            : _currentPage.toDouble();
+        final int floor = pos.floor().clamp(0, _pages.length - 1);
+        final int ceil = pos.ceil().clamp(0, _pages.length - 1);
 
-        return AnimatedOpacity(
-          opacity: isCurrent && controller.value.isInitialized ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeInOut,
-          child: controller.value.isInitialized
-              ? SizedBox.expand(
-                  child: FittedBox(
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: controller.value.size.width > 0
-                          ? controller.value.size.width
-                          : 720,
-                      height: controller.value.size.height > 0
-                          ? controller.value.size.height
-                          : 1280,
-                      child: VideoPlayer(controller),
-                    ),
-                  ),
-                )
-              : const SizedBox.expand(),
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            for (int i = floor; i <= ceil; i++)
+              if (_controllers[i]?.value.isInitialized ?? false)
+                Opacity(
+                  opacity: (1 - (pos - i).abs()).clamp(0.0, 1.0),
+                  child: _buildVideoFill(_controllers[i]!),
+                ),
+          ],
         );
-      }),
+      },
     );
   }
 
-  /// Construye el contenido del slide con animaciones de entrada
+  /// Rellena la pantalla con el video del controlador (BoxFit.cover).
+  Widget _buildVideoFill(VideoPlayerController controller) {
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        child: SizedBox(
+          width: controller.value.size.width > 0
+              ? controller.value.size.width
+              : 720,
+          height: controller.value.size.height > 0
+              ? controller.value.size.height
+              : 1280,
+          child: VideoPlayer(controller),
+        ),
+      ),
+    );
+  }
+
+  /// Contenido del slide con animaciones de entrada.
   Widget _buildSlideContent(_OnboardingData page, int index) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icono dentro de un círculo con bordes semitransparentes
+          // Icono: unidad visual de marca (cuadrado lima + icono negro).
           Container(
-            width: 120,
-            height: 120,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.35),
-                width: 1.5,
-              ),
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.25),
-                  blurRadius: 24,
-                  spreadRadius: 2,
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Icon(
               page.icon,
-              size: 58,
-              color: AppColors.primary,
+              size: 34,
+              color: Colors.black,
             ),
           )
               .animate(key: ValueKey('icon_$index'))
@@ -275,7 +296,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               .scale(begin: const Offset(0.8, 0.8), curve: Curves.easeOutBack),
           const SizedBox(height: 36),
 
-          // Título audaz (tamaño 26, blanco)
           Text(
             page.title,
             style: const TextStyle(
@@ -291,7 +311,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
               .slideY(begin: 0.25, end: 0, curve: Curves.easeOutQuad),
           const SizedBox(height: 16),
 
-          // Descripción (tamaño 15, gris)
           Text(
             page.description,
             style: const TextStyle(
@@ -309,7 +328,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
-  /// Indicador de página con 3 puntitos dinámicos
+  /// Indicador de pagina con puntos dinamicos.
   Widget _buildPageIndicator() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -326,15 +345,6 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 ? AppColors.primary
                 : AppColors.textGray.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(4),
-            boxShadow: _currentPage == index
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.4),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
         ),
       ),
@@ -342,6 +352,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 }
 
+/// Datos de un slide: icono, titulo, descripcion y video de fondo.
 class _OnboardingData {
   final IconData icon;
   final String title;

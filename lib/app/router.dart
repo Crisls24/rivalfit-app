@@ -5,6 +5,7 @@ import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.
 import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
+import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
 
@@ -41,6 +42,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SignUpPage(),
       ),
       GoRoute(
+        path: '/recover',
+        name: 'recover',
+        builder: (context, state) => const RecoverAccessPage(),
+      ),
+      GoRoute(
         path: '/complete-profile',
         name: 'complete-profile',
         builder: (context, state) => const CompleteProfilePage(),
@@ -63,27 +69,33 @@ String? _resolveRedirect(AuthState auth, String location) {
 
   final isOnboarding = location == '/onboarding';
   final isAuthPage = location == '/login' || location == '/signup';
-  final isProfile = location == '/complete-profile';
+  final isRecover = location == '/recover';
 
-  // 2) Sin sesion: solo onboarding/login/signup son accesibles.
+  // 1-bis) Guard recuperacion: la sesion temporal de verifyOTP se salva
+  // (status=authenticated) pero NO debe sacar al usuario de /recover.
+  if (auth.isRecovering && isRecover) return null;
+
+  // 2) Sin sesion: solo onboarding/login/signup/recover son accesibles.
   if (auth.status != AuthStatus.authenticated) {
-    if (isOnboarding || isAuthPage) return null;
+    if (isOnboarding || isAuthPage || isRecover) return null;
     return '/onboarding';
   }
 
   // 3) Con sesion: fuera de onboarding y de las pantallas de auth.
-  if (isOnboarding || isAuthPage) return '/home';
+  if (isOnboarding || isAuthPage || isRecover) return '/home';
 
   // 4) Perfil incompleto: forzar /complete-profile antes de /home (a menos
   //    que el usuario eligio "Omitir" en esta sesion).
   final profileComplete = auth.user?.isProfileComplete ?? false;
   if (!profileComplete && !auth.profileSkippedThisSession) {
-    if (!isProfile) return '/complete-profile';
+    if (!isProfile(location)) return '/complete-profile';
     return null;
   }
 
   // 5) Perfil completo: /complete-profile ya no tiene sentido.
-  if (isProfile) return '/home';
+  if (isProfile(location)) return '/home';
 
   return null;
 }
+
+bool isProfile(String location) => location == '/complete-profile';

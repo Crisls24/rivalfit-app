@@ -10,6 +10,7 @@ class VoltButton extends StatelessWidget {
   final Color backgroundColor;
   final Color textColor;
   final IconData? icon;
+  final Color? iconColor;
   final Color glowColor;
 
   const VoltButton({
@@ -20,6 +21,7 @@ class VoltButton extends StatelessWidget {
     this.backgroundColor = AppColors.volt,
     this.textColor = Colors.black,
     this.icon,
+    this.iconColor,
     this.glowColor = AppColors.volt,
   });
 
@@ -72,7 +74,7 @@ class VoltButton extends StatelessWidget {
                       ),
                       if (icon != null) ...[
                         const SizedBox(width: 10),
-                        Icon(icon, size: 18, color: contentColor),
+                        Icon(icon, size: 18, color: iconColor ?? contentColor),
                       ],
                     ],
                   ),

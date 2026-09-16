@@ -16,11 +16,17 @@ class AuthState {
   final String? errorMessage;
   final bool profileSkippedThisSession;
 
+  /// True mientras el usuario esta dentro del flujo de recuperacion de
+  /// contrasena. Evita que la sesion temporal creada por verifyOTP(type:
+  /// recovery) saque al usuario de /recover y lo mande a /home.
+  final bool isRecovering;
+
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
     this.profileSkippedThisSession = false,
+    this.isRecovering = false,
   });
 
   AuthState copyWith({
@@ -28,6 +34,7 @@ class AuthState {
     User? user,
     String? errorMessage,
     bool? profileSkippedThisSession,
+    bool? isRecovering,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -35,6 +42,7 @@ class AuthState {
       errorMessage: errorMessage ?? this.errorMessage,
       profileSkippedThisSession:
           profileSkippedThisSession ?? this.profileSkippedThisSession,
+      isRecovering: isRecovering ?? this.isRecovering,
     );
   }
 }
@@ -80,11 +88,14 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
         debugPrint('[AUTH] change user=${user != null}');
         _oauthInFlight = false;
         _oauthTimeoutTimer?.cancel();
+        // Preservar isRecovering: este evento dispara cuando verifyOTP crea la
+        // sesion temporal de recovery y no debe romper el guard del router.
         state = AuthState(
           status: user != null
               ? AuthStatus.authenticated
               : AuthStatus.unauthenticated,
           user: user,
+          isRecovering: state.isRecovering,
         );
       },
       onError: (Object error) {
@@ -124,20 +135,27 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     required String displayName,
   }) async {
     state = state.copyWith(status: AuthStatus.loading);
-    final result = await _repo.signUpWithEmail(
-      email: email,
-      password: password,
-      displayName: displayName,
-    );
-    if (result.user != null) {
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: result.user,
+    try {
+      final result = await _repo.signUpWithEmail(
+        email: email,
+        password: password,
+        displayName: displayName,
       );
-    } else {
+      if (result.user != null) {
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: result.user,
+        );
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: result.error?.message ?? 'Error al crear cuenta',
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: result.error?.message ?? 'Error al crear cuenta',
+        errorMessage: _friendlyUnexpected(e),
       );
     }
   }
@@ -147,21 +165,37 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     required String password,
   }) async {
     state = state.copyWith(status: AuthStatus.loading);
-    final result = await _repo.signInWithEmail(
-      email: email,
-      password: password,
-    );
-    if (result.user != null) {
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: result.user,
+    try {
+      final result = await _repo.signInWithEmail(
+        email: email,
+        password: password,
       );
-    } else {
+      if (result.user != null) {
+        state = state.copyWith(
+          status: AuthStatus.authenticated,
+          user: result.user,
+        );
+      } else {
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: result.error?.message ?? 'Error al iniciar sesion',
+        );
+      }
+    } catch (e) {
       state = state.copyWith(
         status: AuthStatus.error,
-        errorMessage: result.error?.message ?? 'Error al iniciar sesion',
+        errorMessage: _friendlyUnexpected(e),
       );
     }
+  }
+
+  /// Nunca dejar el estado colgado en loading ante un error imprevisto.
+  String _friendlyUnexpected(Object error) {
+    final raw = error.toString().toLowerCase();
+    if (raw.contains('timeout') || raw.contains('socket') || raw.contains('connection')) {
+      return 'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.';
+    }
+    return 'Ocurrió un error inesperado. Inténtalo de nuevo.';
   }
 
   /// Lanza un flujo OAuth. El estado queda en loading hasta que
@@ -207,6 +241,14 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
   Future<void> signOut() async {
     await _repo.signOut();
     state = const AuthState(status: AuthStatus.unauthenticated);
+  }
+
+  /// Marca/desmarca el flujo de recuperacion de contrasena. Mientras este
+  /// activo, el router permite permanecer en /recover incluso con una sesion
+  /// temporal de recovery activa.
+  void setRecovering(bool value) {
+    if (state.isRecovering == value) return;
+    state = state.copyWith(isRecovering: value);
   }
 
   /// Guarda el perfil completo. Al persistir is_profile_complete = true,

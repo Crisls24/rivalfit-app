@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:rivalfit/features/auth/presentation/widgets/brand_mark.dart';
 import 'package:rivalfit/features/auth/presentation/widgets/glass_background.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
@@ -32,22 +33,7 @@ class HomePage extends ConsumerWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.fitness_center,
-                          size: 40,
-                          color: AppColors.primary,
-                        ),
-                      ),
+                      const BrandMark(size: 80),
                       const SizedBox(height: 24),
                       const Text(
                         'Bienvenido!',

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
 class GlassInputField extends StatelessWidget {
@@ -11,10 +10,7 @@ class GlassInputField extends StatelessWidget {
   final IconData? prefixIcon;
   final Widget? suffixIcon;
   final String? Function(String?)? validator;
-  final List<TextInputFormatter>? inputFormatters;
   final int? maxLength;
-  final bool readOnly;
-  final VoidCallback? onTap;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onFieldSubmitted;
@@ -29,10 +25,7 @@ class GlassInputField extends StatelessWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.validator,
-    this.inputFormatters,
     this.maxLength,
-    this.readOnly = false,
-    this.onTap,
     this.textInputAction,
     this.onChanged,
     this.onFieldSubmitted,
@@ -60,10 +53,7 @@ class GlassInputField extends StatelessWidget {
           onChanged: onChanged,
           onFieldSubmitted: onFieldSubmitted,
           validator: validator,
-          inputFormatters: inputFormatters,
           maxLength: maxLength,
-          readOnly: readOnly,
-          onTap: onTap,
           style: const TextStyle(
             color: AppColors.textWhite,
             fontSize: 15,

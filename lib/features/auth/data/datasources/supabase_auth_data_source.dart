@@ -2,6 +2,10 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseAuthDataSource {
+  /// Si el servidor no responde en ese plazo, la llamada aborta con un error
+  /// amigable en lugar de dejar el spinner girando para siempre.
+  static const _requestTimeout = Duration(seconds: 20);
+
   final SupabaseClient _client;
 
   SupabaseAuthDataSource({SupabaseClient? client})
@@ -19,18 +23,22 @@ class SupabaseAuthDataSource {
     required String password,
     required String displayName,
   }) async {
-    return await _auth.signUp(
-      email: email,
-      password: password,
-      data: {'display_name': displayName},
-    );
+    return await _auth
+        .signUp(
+          email: email,
+          password: password,
+          data: {'display_name': displayName},
+        )
+        .timeout(_requestTimeout);
   }
 
   Future<AuthResponse> signInWithEmail({
     required String email,
     required String password,
   }) async {
-    return await _auth.signInWithPassword(email: email, password: password);
+    return await _auth
+        .signInWithPassword(email: email, password: password)
+        .timeout(_requestTimeout);
   }
 
   Future<bool> signInWithGoogle() async {
@@ -56,6 +64,39 @@ class SupabaseAuthDataSource {
 
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  /// Envia el email de recuperacion con el codigo OTP de 6 digitos
+  /// (GOTRUE_MAILER_OTP_EXP=600 en el backend). Responde 200 identico para
+  /// emails inexistentes (anti-enumeracion servida por GoTrue).
+  Future<void> sendRecoveryCode(String email) async {
+    await _auth.resetPasswordForEmail(email).timeout(_requestTimeout);
+  }
+
+  /// Valida el codigo OTP de recuperacion. Si es correcto, GoTrue entrega una
+  /// sesion temporal de recovery con la que se podra actualizar la clave.
+  Future<void> verifyRecoveryCode({
+    required String email,
+    required String code,
+  }) async {
+    final response = await _auth
+        .verifyOTP(
+          email: email,
+          token: code,
+          type: OtpType.recovery,
+        )
+        .timeout(_requestTimeout);
+    if (response.session == null) {
+      throw const AuthException('No se pudo verificar el código. Inténtalo de nuevo.');
+    }
+  }
+
+  /// Actualiza la clave del usuario autenticado con la sesion temporal de
+  /// recovery obtenida tras verificar el codigo.
+  Future<void> updatePassword(String newPassword) async {
+    await _auth
+        .updateUser(UserAttributes(password: newPassword))
+        .timeout(_requestTimeout);
   }
 
   /// Actualiza el user_metadata del usuario autenticado.

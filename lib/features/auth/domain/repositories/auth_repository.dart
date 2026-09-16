@@ -22,6 +22,21 @@ abstract class AuthRepository {
 
   Future<Failure?> signOut();
 
+  /// Envia el codigo de recuperacion al email. Devuelve null si la solicitud
+  /// fue aceptada (GoTrue responde 200 incluso para emails inexistentes).
+  Future<Failure?> sendRecoveryCode(String email);
+
+  /// Valida el codigo OTP de recuperacion y deja lista la sesion temporal de
+  /// recovery para actualizar la clave. Devuelve null si el codigo es valido.
+  Future<Failure?> verifyRecoveryCode({
+    required String email,
+    required String code,
+  });
+
+  /// Actualiza la clave con la sesion temporal de recovery y la descarta
+  /// (signOut). Devuelve null si se actualizo correctamente.
+  Future<Failure?> resetPassword(String newPassword);
+
   Future<({User? user, Failure? error})> getCurrentUser();
 
   /// Stream de cambios de sesion. Fuente de verdad del flujo OAuth: cuando el

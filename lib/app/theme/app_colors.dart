@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 
+/// Paleta de RivalFit — "Neon Minimalism + Competitive Sports".
+///
+/// Lima = identidad de marca (Rival Lime). Naranja/rojo son SOLO acentos de
+/// nivel dentro de la seleccion de rango. Negro = intensidad / competicion.
+/// Hueso = calma / navegacion. El neon funciona mejor cuando escasea.
 class AppColors {
   AppColors._();
 
   // Brand
-  static const Color primary = Color(0xFFA83DF2);
-  static const Color accent = Color(0xFFEE5C7D);
+  static const Color primary = Color(0xFFB8FF00);
+  static const Color volt = Color(0xFFB8FF00);
   static const Color danger = Color(0xFFC62828);
 
-  // Glassmorphism
-  static const Color backgroundDark = Color(0xFF1A0A2E);
-  static const Color backgroundDeep = Color(0xFF0F0519);
-  static const Color glowPurple = Color(0xFF7B2FBE);
-  static const Color glowPink = Color(0xFFEE5C7D);
+  // Modo claro (hueso + negro + lima)
+  static const Color base = Color(0xFFF7F7F5);
+  static const Color carbon = Color(0xFF111111);
+
+  // Dark world (negro + lima escaso)
+  static const Color backgroundDark = Color(0xFF111111);
+  static const Color backgroundDeep = Color(0xFF070707);
+  static const Color glowNeutral = Color(0xFF1C1C1E);
+  static const Color glowLime = Color(0xFFB8FF00);
 
   // Glass panel
   static const Color glassBorder = Color(0x33FFFFFF);
@@ -28,13 +37,6 @@ class AppColors {
   static const Color textGray = Color(0xFFB0B0B0);
   static const Color textPlaceholder = Color(0xFF808080);
 
-  // Gradient
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFFA83DF2), Color(0xFFEE5C7D)],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
-
   // Password strength
   static const Color strengthWeak = Color(0xFFC62828);
   static const Color strengthMedium = Color(0xFFF57C00);
@@ -47,18 +49,12 @@ class AppColors {
   // Semantic
   static const Color success = Color(0xFF2E7D32);
 
-  // Brutal / Modo Bestia
-  static const Color volt = Color(0xFFCCFF00);
-  static const Color asphalt = Color(0xFF121212);
-  static const Color brutalCard = Color(0xFF1E1E1E);
-
-  // Nivel de entrenamiento (acentos por nivel)
+  // Nivel de entrenamiento (solo dentro de la seleccion de rango)
   static const Color intermediateOrange = Color(0xFFFF7A00);
-  static const Color advancedCoral = Color(0xFFFF3B30);
+  static const Color advancedCoral = Color(0xFFFF3D3D);
 
-  // Clean White Sports
-  static const Color carbon = Color(0xFF111111);
-  static const Color iceBackground = Color(0xFFF8F9FA);
+  // Clear Light Sports
+  static const Color iceBackground = Color(0xFFF7F7F5);
   static const Color grayMain = Color(0xFF666666);
   static const Color subtleBorder = Color(0xFFE5E5EA);
   static const Color avatarBackground = Color(0xFFF0F0F2);

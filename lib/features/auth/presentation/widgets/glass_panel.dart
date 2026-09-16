@@ -7,7 +7,6 @@ class GlassPanel extends StatelessWidget {
   final double borderRadius;
   final double blur;
   final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
 
   const GlassPanel({
     super.key,
@@ -15,13 +14,11 @@ class GlassPanel extends StatelessWidget {
     this.borderRadius = 28,
     this.blur = 20,
     this.padding,
-    this.margin,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
@@ -30,7 +27,7 @@ class GlassPanel extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.glowPurple.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 40,
             spreadRadius: -5,
           ),

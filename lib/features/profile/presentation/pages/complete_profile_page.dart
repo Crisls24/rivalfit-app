@@ -200,7 +200,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                       children: [
                         _buildTopRow(),
                         const SizedBox(height: 16),
-                        _RoundProgress(step: _step, accent: _accent),
+                        _RoundProgress(
+                          step: _step,
+                          accent: _step == 2 ? _accent : AppColors.volt,
+                        ),
                         const SizedBox(height: 24),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 260),
@@ -741,7 +744,6 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           max: 160,
           step: 0.5,
           value: _weightKg,
-          accent: _accent,
           onChanged: (v) => setState(() => _weightKg = v),
         ),
       ), delay: 120),
@@ -754,7 +756,6 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           max: 220,
           step: 1,
           value: _heightCm.toDouble(),
-          accent: _accent,
           onChanged: (v) => setState(() => _heightCm = v.round()),
         ),
       ), delay: 200),
@@ -876,10 +877,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     }
     return VoltButton(
       text: 'Entrar a la Liga',
-      backgroundColor: _accent,
-      textColor: _onAccent,
+      backgroundColor: AppColors.carbon,
+      textColor: Colors.white,
       icon: Icons.arrow_forward,
-      glowColor: _accent,
+      iconColor: AppColors.volt,
       isLoading: _saving,
       onPressed: _handleSave,
     );

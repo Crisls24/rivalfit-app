@@ -25,9 +25,9 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = _mapUser(response.user);
       return (user: user, error: null);
     } on supabase.AuthException catch (e) {
-      return (user: null, error: AuthFailure(message: e.message));
+      return (user: null, error: AuthFailure(message: _friendlySignUpMessage(e)));
     } catch (e) {
-      return (user: null, error: ServerFailure(message: e.toString()));
+      return (user: null, error: ServerFailure(message: _friendlyServerMessage(e.toString())));
     }
   }
 
@@ -44,9 +44,9 @@ class AuthRepositoryImpl implements AuthRepository {
       final user = _mapUser(response.user);
       return (user: user, error: null);
     } on supabase.AuthException catch (e) {
-      return (user: null, error: AuthFailure(message: e.message));
+      return (user: null, error: AuthFailure(message: _friendlyLoginMessage(e)));
     } catch (e) {
-      return (user: null, error: ServerFailure(message: e.toString()));
+      return (user: null, error: ServerFailure(message: _friendlyServerMessage(e.toString())));
     }
   }
 
@@ -96,6 +96,46 @@ class AuthRepositoryImpl implements AuthRepository {
       return null;
     } catch (e) {
       return ServerFailure(message: e.toString());
+    }
+  }
+
+  @override
+  Future<Failure?> sendRecoveryCode(String email) async {
+    try {
+      await dataSource.sendRecoveryCode(email);
+      return null;
+    } on supabase.AuthException catch (e) {
+      return AuthFailure(message: _friendlyRecoveryMessage(e));
+    } catch (e) {
+      return ServerFailure(message: _friendlyServerMessage(e.toString()));
+    }
+  }
+
+  @override
+  Future<Failure?> verifyRecoveryCode({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      await dataSource.verifyRecoveryCode(email: email, code: code);
+      return null;
+    } on supabase.AuthException catch (e) {
+      return AuthFailure(message: _friendlyRecoveryMessage(e));
+    } catch (e) {
+      return ServerFailure(message: _friendlyServerMessage(e.toString()));
+    }
+  }
+
+  @override
+  Future<Failure?> resetPassword(String newPassword) async {
+    try {
+      await dataSource.updatePassword(newPassword);
+      await dataSource.signOut();
+      return null;
+    } on supabase.AuthException catch (e) {
+      return AuthFailure(message: _friendlyRecoveryMessage(e));
+    } catch (e) {
+      return ServerFailure(message: _friendlyServerMessage(e.toString()));
     }
   }
 
@@ -199,5 +239,67 @@ class AuthRepositoryImpl implements AuthRepository {
       default:
         return domain.AuthProviderType.email;
     }
+  }
+
+  /// Traduce los codigos de error de GoTrue a mensajes claros para el flujo de
+  /// recuperacion. Fuera de estos casos intenta detectar errores de red/gateway
+  /// y si no, expone el mensaje crudo del servidor.
+  String _friendlyRecoveryMessage(supabase.AuthException e) {
+    switch (e.code) {
+      case 'otp_expired':
+        return 'Código incorrecto o expirado. Solicita uno nuevo.';
+      case 'over_request_rate_limit':
+      case 'over_email_send_rate_limit':
+        return 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.';
+      default:
+        return _friendlyServerMessage(e.message);
+    }
+  }
+
+  /// Detecta errores de conexion (gateway, timeout, decode) y los traduce a
+  /// un mensaje en espanol en lugar de exponer el texto crudo del SDK.
+  String _friendlyServerMessage(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.contains('failed to decode') ||
+        lower.contains('socketexception') ||
+        lower.contains('connection refused') ||
+        lower.contains('connection reset') ||
+        lower.contains('timeout') ||
+        lower.contains('timed out') ||
+        lower.contains('handshake') ||
+        lower.contains('network')) {
+      return 'No pudimos conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.';
+    }
+    return raw;
+  }
+
+  /// Mensajes claros para el registro. El caso mas comun es intentar crear una
+  /// cuenta con un correo que ya existe (GoTrue responde 422 user_already_exists).
+  String _friendlySignUpMessage(supabase.AuthException e) {
+    final msg = e.message.toLowerCase();
+    if (e.code == 'user_already_exists' ||
+        msg.contains('already registered') ||
+        msg.contains('already been registered')) {
+      return 'Este correo ya está registrado. Inicia sesión.';
+    }
+    if (msg.contains('unable to validate email') ||
+        msg.contains('invalid email') ||
+        msg.contains('email not allowed')) {
+      return 'El correo no es válido. Verifícalo e inténtalo de nuevo.';
+    }
+    return _friendlyServerMessage(e.message);
+  }
+
+  /// Mensajes claros para el inicio de sesion.
+  String _friendlyLoginMessage(supabase.AuthException e) {
+    final msg = e.message.toLowerCase();
+    if (e.code == 'invalid_credentials' ||
+        msg.contains('invalid login credentials')) {
+      return 'Correo o contraseña incorrectos.';
+    }
+    if (e.code == 'email_not_confirmed' || msg.contains('email not confirmed')) {
+      return 'Confirma tu correo antes de iniciar sesión.';
+    }
+    return _friendlyServerMessage(e.message);
   }
 }

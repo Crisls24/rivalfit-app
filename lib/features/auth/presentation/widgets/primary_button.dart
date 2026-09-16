@@ -1,40 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
-class GradientButton extends StatelessWidget {
+/// Boton primario de auth: lima solido + texto negro, sin gradientes ni
+/// glows encimados.
+class PrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
-  final LinearGradient? gradient;
 
-  const GradientButton({
+  const PrimaryButton({
     super.key,
     required this.text,
     this.onPressed,
     this.isLoading = false,
-    this.gradient,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveGradient = gradient ?? AppColors.primaryGradient;
+    final enabled = onPressed != null;
 
     return Container(
       width: double.infinity,
-      height: 52,
+      height: 56,
       decoration: BoxDecoration(
-        gradient: onPressed != null ? effectiveGradient : null,
-        color: onPressed == null ? Colors.grey.withValues(alpha: 0.3) : null,
+        color: enabled ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(24),
-        boxShadow: onPressed != null
-            ? [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : null,
       ),
       child: Material(
         color: Colors.transparent,
@@ -48,13 +38,13 @@ class GradientButton extends StatelessWidget {
                     width: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Colors.white,
+                      color: Colors.black,
                     ),
                   )
                 : Text(
                     text,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: enabled ? Colors.black : Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.3,
