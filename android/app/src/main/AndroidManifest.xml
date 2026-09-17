@@ -32,6 +32,28 @@
                     android:scheme="com.rivalfit.rivalfit"
                     android:host="login-callback"/>
             </intent-filter>
+            <!-- Recuperacion de contrasena: el correo abre la app con el codigo
+                 para prellenarlo y verificarlo automaticamente. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="com.rivalfit.rivalfit"
+                    android:host="reset"/>
+            </intent-filter>
+            <!-- Android App Links: el correo abre la app con un enlace https
+                 (fit-api.iscx.site/reset?...) que Gmail si convierte en enlace
+                 pulsable. autoVerify valida con /.well-known/assetlinks.json. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="fit-api.iscx.site"
+                    android:pathPrefix="/reset"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

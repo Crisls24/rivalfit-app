@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+
 import '../controllers/auth_controller.dart';
 import '../controllers/auth_providers.dart';
 import '../controllers/recovery_controller.dart';
@@ -27,6 +29,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   final _emailController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   bool _obscureNew = true;
   bool _obscureConfirm = true;
@@ -52,8 +55,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   }
 
   void _onNewPasswordChanged() {
-    final strength =
-        getPasswordStrength(_newPasswordController.text);
+    final strength = getPasswordStrength(_newPasswordController.text);
     if (strength != _newPasswordStrength) {
       setState(() => _newPasswordStrength = strength);
     }
@@ -65,13 +67,14 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   }
 
   void _sendCode() {
-    ref.read(recoveryControllerProvider.notifier).requestCode(
-          _emailController.text,
-        );
+    ref
+        .read(recoveryControllerProvider.notifier)
+        .requestCode(_emailController.text);
   }
 
   void _changePassword() {
     final notifier = ref.read(recoveryControllerProvider.notifier);
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_newPasswordController.text.length < 8) return;
     notifier.changePassword(_newPasswordController.text);
   }
@@ -145,9 +148,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
                         context.go('/login');
                       }
                     } else {
-                      ref
-                          .read(recoveryControllerProvider.notifier)
-                          .back();
+                      ref.read(recoveryControllerProvider.notifier).back();
                     }
                   },
                 ),
@@ -318,14 +319,13 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
         ),
         const SizedBox(height: 28),
         OtpCodeInput(
+          initialCode: state.prefillCode,
           isVerifying: state.isSubmitting,
           errorText: state.errorMessage,
-          onChanged: (_) => ref
-              .read(recoveryControllerProvider.notifier)
-              .clearError(),
-          onCompleted: (code) => ref
-              .read(recoveryControllerProvider.notifier)
-              .verifyCode(code),
+          onChanged: (_) =>
+              ref.read(recoveryControllerProvider.notifier).clearError(),
+          onCompleted: (code) =>
+              ref.read(recoveryControllerProvider.notifier).verifyCode(code),
         ),
         const SizedBox(height: 12),
         if (state.isSubmitting)
@@ -362,18 +362,15 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
             if (state.cooldownSeconds > 0)
               Text(
                 'Reenviar en 0:${state.cooldownSeconds.toString().padLeft(2, '0')}',
-                style: const TextStyle(
-                  color: AppColors.textGray,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: AppColors.textGray, fontSize: 13),
               )
             else
               TextButton(
                 onPressed: state.isSubmitting
                     ? null
                     : () => ref
-                        .read(recoveryControllerProvider.notifier)
-                        .resendCode(),
+                          .read(recoveryControllerProvider.notifier)
+                          .resendCode(),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   textStyle: const TextStyle(
@@ -390,122 +387,129 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   }
 
   Widget _buildPasswordStep(RecoveryState state) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildBrandHeader(),
-        const SizedBox(height: 20),
-        const Text(
-          'Crea una nueva contraseña',
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
+    return Form(
+      key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBrandHeader(),
+          const SizedBox(height: 20),
+          const Text(
+            'Crea una nueva contraseña',
+            style: TextStyle(
+              color: AppColors.textWhite,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Establece una nueva contraseña para volver a entrar a RivalFit.',
-          style: TextStyle(
-            color: AppColors.textGray,
-            fontSize: 14,
-            height: 1.4,
+          const SizedBox(height: 8),
+          const Text(
+            'Establece una nueva contraseña para volver a entrar a RivalFit.',
+            style: TextStyle(
+              color: AppColors.textGray,
+              fontSize: 14,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 32),
-        GlassInputField(
-          controller: _newPasswordController,
-          label: 'Nueva contraseña',
-          hint: 'Nueva contraseña',
-          obscureText: _obscureNew,
-          textInputAction: TextInputAction.next,
-          prefixIcon: Icons.lock_outline,
-          maxLength: 25,
-          onChanged: (_) =>
-              ref.read(recoveryControllerProvider.notifier).clearError(),
-          suffixIcon: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_newPasswordController.text.isNotEmpty) ...[
-                PasswordStrengthIndicator(strength: _newPasswordStrength),
-                const SizedBox(width: 8),
-              ],
-              IconButton(
-                icon: Icon(
-                  _obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  size: 20,
+          const SizedBox(height: 32),
+          GlassInputField(
+            controller: _newPasswordController,
+            label: 'Nueva contraseña',
+            hint: 'Nueva contraseña',
+            obscureText: _obscureNew,
+            textInputAction: TextInputAction.next,
+            prefixIcon: Icons.lock_outline,
+            maxLength: 25,
+            onChanged: (_) =>
+                ref.read(recoveryControllerProvider.notifier).clearError(),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_newPasswordController.text.isNotEmpty) ...[
+                  PasswordStrengthIndicator(strength: _newPasswordStrength),
+                  const SizedBox(width: 8),
+                ],
+                IconButton(
+                  icon: Icon(
+                    _obscureNew
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
-                onPressed: () =>
-                    setState(() => _obscureNew = !_obscureNew),
+              ],
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Ingresa una contraseña';
+              }
+              if (value.length < 8) {
+                return 'Mínimo 8 caracteres';
+              }
+              return null;
+            },
+          ),
+          if (_newPasswordController.text.isNotEmpty &&
+              _newPasswordStrength != PasswordStrength.strong) ...[
+            const SizedBox(height: 6),
+            PasswordHintsList(password: _newPasswordController.text),
+          ],
+          const SizedBox(height: 16),
+          GlassInputField(
+            controller: _confirmController,
+            label: 'Confirmar contraseña',
+            hint: 'Confirmar contraseña',
+            obscureText: _obscureConfirm,
+            textInputAction: TextInputAction.done,
+            prefixIcon: Icons.lock_outline,
+            maxLength: 25,
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscureConfirm
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                size: 20,
               ),
-            ],
-          ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Ingresa una contraseña';
-            }
-            if (value.length < 8) {
-              return 'Mínimo 8 caracteres';
-            }
-            return null;
-          },
-        ),
-        if (_newPasswordController.text.isNotEmpty &&
-            _newPasswordStrength != PasswordStrength.strong) ...[
-          const SizedBox(height: 6),
-          PasswordHintsList(password: _newPasswordController.text),
-        ],
-        const SizedBox(height: 16),
-        GlassInputField(
-          controller: _confirmController,
-          label: 'Confirmar contraseña',
-          hint: 'Confirmar contraseña',
-          obscureText: _obscureConfirm,
-          textInputAction: TextInputAction.done,
-          prefixIcon: Icons.lock_outline,
-          maxLength: 25,
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-              size: 20,
+              onPressed: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
             ),
-            onPressed: () =>
-                setState(() => _obscureConfirm = !_obscureConfirm),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Confirma tu contraseña';
+              }
+              if (value != _newPasswordController.text) {
+                return 'Las contraseñas no coinciden';
+              }
+              return null;
+            },
           ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Confirma tu contraseña';
-            }
-            if (value != _newPasswordController.text) {
-              return 'Las contraseñas no coinciden';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 20),
-        if (state.errorMessage != null) ...[
-          Text(
-            state.errorMessage!,
-            style: const TextStyle(
-              color: AppColors.danger,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          const SizedBox(height: 20),
+          if (state.errorMessage != null) ...[
+            Text(
+              state.errorMessage!,
+              style: const TextStyle(
+                color: AppColors.danger,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
+            const SizedBox(height: 12),
+          ],
+          PrimaryButton(
+            text: 'Cambiar contraseña',
+            isLoading: state.isSubmitting,
+            onPressed:
+                state.isSubmitting || _newPasswordController.text.length < 8
+                ? null
+                : _changePassword,
           ),
-          const SizedBox(height: 12),
         ],
-        PrimaryButton(
-          text: 'Cambiar contraseña',
-          isLoading: state.isSubmitting,
-          onPressed:
-              state.isSubmitting || _newPasswordController.text.length < 8
-                  ? null
-                  : _changePassword,
-        ),
-      ],
+      ),
     );
   }
 
@@ -552,10 +556,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
-        PrimaryButton(
-          text: 'Ir a Iniciar sesión',
-          onPressed: _goToLogin,
-        ),
+        PrimaryButton(text: 'Ir a Iniciar sesión', onPressed: _goToLogin),
       ],
     );
   }

@@ -21,6 +21,9 @@ dependencies:
   # Backend
   supabase_flutter: ^2.8.0
 
+  # Deep links (auto-relleno de codigo de recuperacion desde el correo)
+  app_links: ^7.2.1
+
   # Design
   google_fonts: ^6.2.1
   flutter_animate: ^4.5.2

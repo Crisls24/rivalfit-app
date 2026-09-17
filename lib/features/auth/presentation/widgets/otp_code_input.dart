@@ -13,6 +13,11 @@ class OtpCodeInput extends StatefulWidget {
   final int length;
   final bool isVerifying;
   final String? errorText;
+
+  /// Codigo inicial para autocompletar (p. ej. al abrir la app desde el enlace
+  /// del correo de recuperacion). Si tiene [length] digitos, se rellenan las
+  /// cajas y se dispara [onCompleted] automaticamente.
+  final String? initialCode;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onCompleted;
 
@@ -21,6 +26,7 @@ class OtpCodeInput extends StatefulWidget {
     this.length = 6,
     this.isVerifying = false,
     this.errorText,
+    this.initialCode,
     this.onChanged,
     this.onCompleted,
   });
@@ -50,8 +56,26 @@ class _OtpCodeInputState extends State<OtpCodeInput>
       upperBound: 1,
       value: 0,
     );
+    final initial = widget.initialCode;
+    if (initial != null && initial.length >= _length) {
+      _prefill(initial);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNodes.first.requestFocus();
+      });
+    }
+  }
+
+  /// Coloca [code] en las cajas y, una vez montado, dispara la verificacion
+  /// automatica (via [_complete]) como si el usuario lo hubiera tecleado.
+  void _prefill(String code) {
+    _bulk = true;
+    for (var i = 0; i < _length; i++) {
+      _controllers[i].text = i < code.length ? code[i] : '';
+    }
+    _bulk = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focusNodes.first.requestFocus();
+      if (mounted) _complete();
     });
   }
 

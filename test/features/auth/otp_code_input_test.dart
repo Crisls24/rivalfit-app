@@ -29,6 +29,24 @@ void main() {
     expect(completed, ['987654']);
   });
 
+  testWidgets('initialCode rellena las cajas y verifica automaticamente',
+      (tester) async {
+    final completed = <String>[];
+    await tester.pumpWidget(
+      _wrap(OtpCodeInput(initialCode: '246810', onCompleted: completed.add)),
+    );
+    await tester.pump();
+
+    for (var i = 0; i < 6; i++) {
+      expect(
+        tester.widget<TextField>(find.byType(TextField).at(i)).controller!.text,
+        '246810'[i],
+        reason: 'la caja $i debio prellenarse',
+      );
+    }
+    expect(completed, ['246810']);
+  });
+
   testWidgets('errorText limpia las cajas', (tester) async {
     await tester.pumpWidget(_wrap(OtpCodeInput()));
     await tester.enterText(find.byType(TextField).at(0), '1');

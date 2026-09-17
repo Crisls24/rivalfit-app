@@ -1,8 +1,14 @@
+import 'dart:async';
+
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/router.dart';
 import 'app/theme/app_theme.dart';
+import 'features/auth/presentation/controllers/auth_controller.dart';
+import 'features/auth/presentation/controllers/auth_providers.dart';
+import 'features/auth/presentation/controllers/recovery_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,11 +34,92 @@ Future<void> main() async {
   );
 }
 
-class RivalFitApp extends ConsumerWidget {
+class RivalFitApp extends ConsumerStatefulWidget {
   const RivalFitApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RivalFitApp> createState() => _RivalFitAppState();
+}
+
+class _RivalFitAppState extends ConsumerState<RivalFitApp> {
+  final AppLinks _appLinks = AppLinks();
+  StreamSubscription<Uri>? _linkSub;
+  String? _lastSignature;
+  DateTime? _lastHandledAt;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenDeepLinks();
+  }
+
+  @override
+  void dispose() {
+    _linkSub?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _listenDeepLinks() async {
+    _linkSub = _appLinks.uriLinkStream.listen(_handleUri, onError: (_) {});
+    try {
+      final initial = await _appLinks.getInitialLink();
+      if (initial != null) _handleUri(initial);
+    } catch (_) {
+      // Sin enlace inicial: arranque normal.
+    }
+  }
+
+  /// com.rivalfit.rivalfit://reset?email=...&code=...
+  ///
+  /// Prellena y verifica automaticamente el codigo de recuperacion enviado por
+  /// correo. El enlace puede emitirse dos veces (initial link + stream), por eso
+  /// se deduplica por firma dentro de una ventana corta.
+  void _handleUri(Uri uri) {
+    final query = uri.queryParameters;
+    final isReset = uri.host == 'reset' ||
+        uri.path.contains('reset') ||
+        query.containsKey('code');
+    if (!isReset) return;
+
+    final rawEmail = query['email'];
+    final code = (query['code'] ?? query['token'] ?? '')
+        .replaceAll(RegExp(r'[^0-9]'), '');
+    if (rawEmail == null || code.length != recoveryOtpLength) {
+      return;
+    }
+
+    // El '+' del correo se decodifica como espacio al parsear el query string.
+    final email = rawEmail.replaceAll(' ', '+');
+    final signature = '$email|$code';
+
+    final now = DateTime.now();
+    if (_lastSignature == signature &&
+        _lastHandledAt != null &&
+        now.difference(_lastHandledAt!) < const Duration(seconds: 3)) {
+      return;
+    }
+    _lastSignature = signature;
+    _lastHandledAt = now;
+
+    // Marca la sesion como "en recuperacion" ANTES de navegar: el guard del
+    // router solo deja entrar a /recover si isRecovering ya es true.
+    ref.read(authControllerProvider.notifier).setRecovering(true);
+    ref.read(recoveryControllerProvider.notifier).startFromLink(
+          email: email,
+          code: code,
+        );
+
+    // En arranque en frio el GoRouter aun no esta montado cuando initState
+    // resuelve el enlace inicial; navegar en el siguiente frame evita que
+    // initialLocation('/onboarding') adelante a la navegacion.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(routerProvider).go('/recover');
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

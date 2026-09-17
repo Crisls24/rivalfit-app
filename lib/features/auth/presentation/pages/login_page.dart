@@ -135,8 +135,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       // Email field
                       GlassInputField(
                         controller: _emailController,
-                        label: 'Usuario',
-                        hint: 'Usuario',
+                        label: 'Correo Electrónico',
+                        hint: 'Correo Electrónico',
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
                         prefixIcon: Icons.person_outline,

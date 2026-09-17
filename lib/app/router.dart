@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:rivalfit/features/auth/presentation/controllers/auth_providers.dart';
 import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
+import 'package:rivalfit/features/auth/presentation/controllers/recovery_controller.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
@@ -23,8 +25,14 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/onboarding',
     refreshListenable: authRefresh,
-    redirect: (context, state) =>
-        _resolveRedirect(ref.read(authControllerProvider), state.matchedLocation),
+    redirect: (context, state) {
+      final recoveryStep = ref.read(recoveryControllerProvider).step;
+      return _resolveRedirect(
+        ref.read(authControllerProvider),
+        state.matchedLocation,
+        recoveryStep,
+      );
+    },
     routes: [
       GoRoute(
         path: '/onboarding',
@@ -61,7 +69,11 @@ final routerProvider = Provider<GoRouter>((ref) {
 });
 
 /// Decide a que ruta debe ir el usuario segun su estado de sesion.
-String? _resolveRedirect(AuthState auth, String location) {
+String? _resolveRedirect(
+  AuthState auth,
+  String location,
+  RecoveryStep recoveryStep,
+) {
   // 1) Aun cargando el estado inicial: deja pasar para no parpadear.
   if (auth.status == AuthStatus.loading || auth.status == AuthStatus.initial) {
     return null;
@@ -71,9 +83,18 @@ String? _resolveRedirect(AuthState auth, String location) {
   final isAuthPage = location == '/login' || location == '/signup';
   final isRecover = location == '/recover';
 
-  // 1-bis) Guard recuperacion: la sesion temporal de verifyOTP se salva
-  // (status=authenticated) pero NO debe sacar al usuario de /recover.
-  if (auth.isRecovering && isRecover) return null;
+  // 1-bis) Guard recuperacion SOLO en los pasos OTP y nueva contrasena. La
+  // sesion temporal creada por verifyOTP dispara onAuthStateChange con
+  // status=authenticated y un perfil a medio terminar; sin este bloque el
+  // router lo echaria a /complete-profile o /home en mitad del cambio de
+  // contrasena. En step=success se libera para permitir el regreso a /login.
+  final midRecovery = auth.isRecovering &&
+      (recoveryStep == RecoveryStep.otp ||
+          recoveryStep == RecoveryStep.password);
+  if (midRecovery) {
+    if (isRecover) return null;
+    return '/recover';
+  }
 
   // 2) Sin sesion: solo onboarding/login/signup/recover son accesibles.
   if (auth.status != AuthStatus.authenticated) {

@@ -18,6 +18,10 @@ class RecoveryState {
   final int cooldownSeconds;
   final String? errorMessage;
 
+  /// Código que la UI debe prellenar en el paso OTP (auto-relleno desde el
+  /// enlace del correo). Se consume una sola vez: se descarta al verificar.
+  final String? prefillCode;
+
   /// True una vez que la clave se actualizó y se cerró la sesión temporal.
   /// Lo consume el Login para mostrar el mensaje de éxito y luego se resetea.
   final bool justCompleted;
@@ -29,6 +33,7 @@ class RecoveryState {
     this.maskedEmail = '',
     this.cooldownSeconds = 0,
     this.errorMessage,
+    this.prefillCode,
     this.justCompleted = false,
   });
 
@@ -39,6 +44,7 @@ class RecoveryState {
     String? maskedEmail,
     int? cooldownSeconds,
     Object? errorMessage = _unset,
+    Object? prefillCode = _unset,
     bool? justCompleted,
   }) {
     return RecoveryState(
@@ -50,6 +56,9 @@ class RecoveryState {
       errorMessage: identical(errorMessage, _unset)
           ? this.errorMessage
           : errorMessage as String?,
+      prefillCode: identical(prefillCode, _unset)
+          ? this.prefillCode
+          : prefillCode as String?,
       justCompleted: justCompleted ?? this.justCompleted,
     );
   }
@@ -91,6 +100,22 @@ class RecoveryController extends StateNotifier<RecoveryState> {
     _startCooldown();
   }
 
+  /// Entra directo al paso OTP con un código recibido por deep link (el correo
+  /// abre la app con email + código). Arranca el cooldown para que el reenvío
+  /// respete el límite SMTP de GoTrue.
+  void startFromLink({required String email, required String code}) {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty || code.length != recoveryOtpLength) return;
+    _cooldownTimer?.cancel();
+    state = RecoveryState(
+      step: RecoveryStep.otp,
+      email: trimmed,
+      maskedEmail: maskEmail(trimmed),
+      prefillCode: code,
+    );
+    _startCooldown();
+  }
+
   /// Estado 2 -> 3. Valida los 6 digitos automaticamente al completarlos.
   Future<void> verifyCode(String code) async {
     if (code.length != recoveryOtpLength || state.isSubmitting) return;
@@ -107,6 +132,7 @@ class RecoveryController extends StateNotifier<RecoveryState> {
       isSubmitting: false,
       step: RecoveryStep.password,
       errorMessage: null,
+      prefillCode: null,
     );
   }
 
@@ -140,7 +166,11 @@ class RecoveryController extends StateNotifier<RecoveryState> {
   /// Navegacion hacia atras dentro de la misma experiencia (sin salir).
   void back() {
     if (state.step == RecoveryStep.otp) {
-      state = state.copyWith(step: RecoveryStep.email, errorMessage: null);
+      state = state.copyWith(
+        step: RecoveryStep.email,
+        errorMessage: null,
+        prefillCode: null,
+      );
     } else if (state.step == RecoveryStep.password) {
       state = state.copyWith(step: RecoveryStep.otp, errorMessage: null);
     }

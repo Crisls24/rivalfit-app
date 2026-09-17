@@ -32,19 +32,23 @@ class AuthState {
   AuthState copyWith({
     AuthStatus? status,
     User? user,
-    String? errorMessage,
+    Object? errorMessage = _unset,
     bool? profileSkippedThisSession,
     bool? isRecovering,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: user ?? this.user,
-      errorMessage: errorMessage ?? this.errorMessage,
+      errorMessage: identical(errorMessage, _unset)
+          ? this.errorMessage
+          : errorMessage as String?,
       profileSkippedThisSession:
           profileSkippedThisSession ?? this.profileSkippedThisSession,
       isRecovering: isRecovering ?? this.isRecovering,
     );
   }
+
+  static const _unset = Object();
 }
 
 class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserver {
@@ -85,7 +89,6 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
   void _listenToAuthChanges() {
     _authSubscription = _repo.onAuthStateChange.listen(
       (user) {
-        debugPrint('[AUTH] change user=${user != null}');
         _oauthInFlight = false;
         _oauthTimeoutTimer?.cancel();
         // Preservar isRecovering: este evento dispara cuando verifyOTP crea la
@@ -206,11 +209,9 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
   ) async {
     if (_oauthInFlight) return;
     if (!await RouteKeeper.allowOAuthLaunch()) {
-      debugPrint('[AUTH] oauth launch bloqueado por cooldown');
       return;
     }
     _oauthInFlight = true;
-    debugPrint('[AUTH] oauth launch start');
     state = state.copyWith(status: AuthStatus.loading);
     _oauthTimeoutTimer?.cancel();
     _oauthTimeoutTimer = Timer(_oauthTimeout, () {
@@ -221,7 +222,6 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     });
 
     final result = await launch();
-    debugPrint('[AUTH] oauth launch returned error=${result.error != null}');
     if (result.error != null) {
       _oauthInFlight = false;
       _oauthTimeoutTimer?.cancel();

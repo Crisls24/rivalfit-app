@@ -48,6 +48,18 @@ La version de Flutter esta fijada por proyecto con [FVM](https://fvm.app)
      --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3NTQ3NTkzLCJleHAiOjE5NDUyMjc1OTN9.aBEIQEPBw-Q8cPlb4BY2PHLyiiJW-ZPOAh2D3NdnUWA
    ```
 
+> Importante: **un APK (no solo `run`) tambien necesita estos `--dart-define`**.
+> Si compilas sin `SUPABASE_ANON_KEY` el cliente envia una API key vacia y el
+> gateway responde HTTP 401 en texto plano ("Unauthorized"); el SDK de Supabase
+> no puede decodificarlo y la app muestra "No pudimos conectar con el servidor"
+> en todos los flujos de Auth. Ejemplo:
+
+   ```sh
+   fvm flutter build apk --debug \
+     --dart-define=SUPABASE_URL=https://fit-api.iscx.site \
+     --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3NTQ3NTkzLCJleHAiOjE5NDUyMjc1OTN9.aBEIQEPBw-Q8cPlb4BY2PHLyiiJW-ZPOAh2D3NdnUWA
+   ```
+
 Para editar en VS Code: instala las extensiones recomendadas (`.vscode/extensions.json`),
 que usan el SDK de `.fvm/flutter_sdk` y el launch config ya incluye los `--dart-define`.
 
