@@ -28,14 +28,17 @@ class VoltButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null;
-    final contentColor = enabled ? textColor : Colors.black.withValues(alpha: 0.25);
+    final contentColor = enabled
+        ? textColor
+        : Colors.black.withValues(alpha: 0.25);
+
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: enabled && glowColor != AppColors.volt
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: enabled
             ? [
                 BoxShadow(
-                  color: glowColor.withValues(alpha: 0.30),
+                  color: glowColor.withValues(alpha: 0.24),
                   blurRadius: 18,
                   offset: const Offset(0, 6),
                 ),
@@ -43,44 +46,48 @@ class VoltButton extends StatelessWidget {
             : null,
       ),
       child: Material(
-      color: enabled ? backgroundColor : AppColors.subtleBorder,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
-          height: 54,
-          child: Center(
-            child: isLoading
-                ? SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: contentColor,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        text.toUpperCase(),
-                        style: TextStyle(
-                          color: contentColor,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.6,
-                        ),
+        color: enabled ? backgroundColor : AppColors.subtleBorder,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 56,
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: contentColor,
                       ),
-                      if (icon != null) ...[
-                        const SizedBox(width: 10),
-                        Icon(icon, size: 18, color: iconColor ?? contentColor),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          text.toUpperCase(),
+                          style: TextStyle(
+                            color: contentColor,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.7,
+                          ),
+                        ),
+                        if (icon != null) ...[
+                          const SizedBox(width: 10),
+                          Icon(
+                            icon,
+                            size: 18,
+                            color: iconColor ?? contentColor,
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
+                    ),
+            ),
           ),
         ),
-      ),
       ),
     );
   }

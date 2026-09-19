@@ -3,15 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+
 import '../controllers/auth_controller.dart';
 import '../controllers/auth_providers.dart';
 import '../controllers/recovery_controller.dart';
-import '../widgets/glass_background.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/glass_input_field.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/brand_mark.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/glass_input_field.dart';
+import '../widgets/glass_panel.dart';
+import '../widgets/primary_button.dart';
 import '../widgets/social_login_cards.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -36,7 +37,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _handleLogin() {
     if (!_formKey.currentState!.validate()) return;
-    ref.read(authControllerProvider.notifier).signInWithEmail(
+    ref
+        .read(authControllerProvider.notifier)
+        .signInWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
@@ -172,7 +175,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           ),
                           onPressed: () {
                             setState(
-                                () => _obscurePassword = !_obscurePassword);
+                              () => _obscurePassword = !_obscurePassword,
+                            );
                           },
                         ),
                         validator: (value) {
@@ -191,7 +195,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed: () {
-                            ref.read(authControllerProvider.notifier)
+                            ref
+                                .read(authControllerProvider.notifier)
                                 .setRecovering(true);
                             context.push('/recover');
                           },
@@ -236,7 +241,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       const SizedBox(height: 24),
                       // Sign up link
-Padding(
+                      Padding(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         child: Text.rich(
                           TextSpan(

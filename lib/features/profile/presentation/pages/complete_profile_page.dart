@@ -1,20 +1,28 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/auth/domain/entities/user.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
-import '../widgets/avatar_selector.dart';
-import '../widgets/level_card.dart';
-import '../widgets/metric_slider.dart';
+
+import '../widgets/identity_step.dart';
+import '../widgets/metrics_step.dart';
+import '../widgets/rank_step.dart';
+import '../widgets/step_indicator.dart';
 import '../widgets/volt_button.dart';
 
-/// Onboarding de perfil en 3 pasos ("Forja tu perfil"):
-///   1) Alias  2) Rango  3) Métricas base.
-/// Indicador ROUND 01/03 con hilo de progreso y vista previa de rival en vivo.
+/// Onboarding de perfil en 3 pasos — "Forja tu perfil".
+///
+/// Rediseño "Card Flotante Plana":
+///   • Fondo arena con textura dot-grid sutil.
+///   • StepIndicator numerado (01/02/03) con burbujas animadas.
+///   • Header con número de paso en ghosting + título bold.
+///   • Cada paso vive en su propio widget (identity / metrics / rank).
+///
+/// Toda la lógica de estado, subida y navegación se mantiene intacta.
 class CompleteProfilePage extends ConsumerStatefulWidget {
   const CompleteProfilePage({super.key});
 
@@ -24,9 +32,14 @@ class CompleteProfilePage extends ConsumerStatefulWidget {
 }
 
 class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
+  // ─────────────────────── Estado ───────────────────────
   final _nameController = TextEditingController();
   final _nameFocusNode = FocusNode();
   bool _nameFocused = false;
+
+  final _ageController = TextEditingController();
+  final _ageFocusNode = FocusNode();
+  bool _ageFocused = false;
 
   int _step = 1;
   FitnessLevel? _fitnessLevel;
@@ -38,12 +51,15 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
   bool _uploadingAvatar = false;
   bool _saving = false;
 
+  // ─────────────────────── Init / Dispose ───────────────────────
+
   @override
   void initState() {
     super.initState();
     _nameController.text =
         ref.read(authControllerProvider).user?.displayName ?? '';
     _nameFocusNode.addListener(_onNameFocusChange);
+    _ageFocusNode.addListener(_onAgeFocusChange);
   }
 
   void _onNameFocusChange() {
@@ -51,13 +67,23 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     if (focused != _nameFocused) setState(() => _nameFocused = focused);
   }
 
+  void _onAgeFocusChange() {
+    final focused = _ageFocusNode.hasFocus;
+    if (focused != _ageFocused) setState(() => _ageFocused = focused);
+  }
+
   @override
   void dispose() {
     _nameFocusNode.removeListener(_onNameFocusChange);
     _nameFocusNode.dispose();
     _nameController.dispose();
+    _ageFocusNode.removeListener(_onAgeFocusChange);
+    _ageFocusNode.dispose();
+    _ageController.dispose();
     super.dispose();
   }
+
+  // ─────────────────────── Computed ───────────────────────
 
   bool get _fetching {
     final state = ref.read(authControllerProvider);
@@ -68,21 +94,24 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
 
   bool get _hasName => _nameController.text.trim().isNotEmpty;
 
+  int? get _age => int.tryParse(_ageController.text.trim());
+
+  bool get _hasValidAge {
+    final age = _age;
+    return age != null && age >= 13 && age <= 99;
+  }
+
   String get _alias {
     final name = _nameController.text.trim().toLowerCase();
     return name.replaceAll(RegExp(r'\s+'), '');
   }
 
-  Color get _accent {
-    return switch (_fitnessLevel) {
-      FitnessLevel.beginner => AppColors.volt,
-      FitnessLevel.intermediate => AppColors.intermediateOrange,
-      FitnessLevel.advanced => AppColors.advancedCoral,
-      null => AppColors.volt,
-    };
-  }
-
-  Color get _onAccent => _accent == AppColors.volt ? Colors.black : Colors.white;
+  Color get _accent => switch (_fitnessLevel) {
+        FitnessLevel.beginner => AppColors.volt,
+        FitnessLevel.intermediate => AppColors.intermediateOrange,
+        FitnessLevel.advanced => AppColors.advancedCoral,
+        null => AppColors.volt,
+      };
 
   String get _initials {
     final name = _nameController.text.trim();
@@ -91,6 +120,15 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     if (parts.isEmpty) return 'R';
     return parts.take(2).map((p) => p[0]).join().toUpperCase();
   }
+
+  ImageProvider? _avatarProvider() {
+    if (_avatarBytes != null) return MemoryImage(_avatarBytes!);
+    final photo = ref.read(authControllerProvider).user?.photoUrl;
+    if (photo != null) return NetworkImage(photo);
+    return null;
+  }
+
+  // ─────────────────────── Acciones ───────────────────────
 
   void _goTo(int step) => setState(() => _step = step);
 
@@ -157,8 +195,10 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           bg: AppColors.success);
       context.go('/home');
     } else {
-      _showSnack(state.errorMessage ?? 'Error al guardar el perfil',
-          bg: AppColors.danger);
+      _showSnack(
+        state.errorMessage ?? 'Error al guardar el perfil',
+        bg: AppColors.danger,
+      );
       notifier.clearError();
     }
   }
@@ -176,14 +216,22 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       );
   }
 
-  // ───────────────────────── Build ─────────────────────────
+  // ─────────────────────── Build ───────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final authUser = ref.watch(authControllerProvider).user;
-
-    return Scaffold(
+    // watch dispara rebuild cuando el estado de auth cambia
+    // (ej. loading → authenticated) para que _fetching se recalcule.
+    ref.watch(authControllerProvider);
+    return PopScope(
+      canPop: _step == 1,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_step > 1) _goTo(_step - 1);
+      },
+      child: Scaffold(
       backgroundColor: AppColors.iceBackground,
+      resizeToAvoidBottomInset: true,
       body: _fetching
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.volt),
@@ -191,28 +239,41 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
           : Stack(
               fit: StackFit.expand,
               children: [
-                _arenaBackdrop(),
+                // Fondo limpio con gradiente extremadamente sutil
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.white, AppColors.iceBackground],
+                    ),
+                  ),
+                ),
                 SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTopRow(),
-                        const SizedBox(height: 16),
-                        _RoundProgress(
-                          step: _step,
-                          accent: _step == 2 ? _accent : AppColors.volt,
+                        _buildTopBar(),
+                        const SizedBox(height: 10),
+
+                        // Stepper numerado (tap para ir al paso)
+                        StepIndicator(
+                          currentStep: _step,
+                          accent: _accent,
+                          onStepTap: (step) => _goTo(step),
                         ),
-                        const SizedBox(height: 24),
+                        SizedBox(height: _step > 1 ? 28 : 16),
+
+                        // Header con número ghost + título
                         AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
+                          duration: const Duration(milliseconds: 240),
                           switchInCurve: Curves.easeOutCubic,
                           switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(
+                          transitionBuilder: (child, anim) => FadeTransition(
                             opacity: CurvedAnimation(
-                              parent: animation,
+                              parent: anim,
                               curve: Curves.easeOut,
                             ),
                             child: child,
@@ -222,22 +283,24 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                             child: _buildStepHeader(),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 4),
+
+                        // Contenido del paso
                         Expanded(
                           child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 280),
+                            duration: const Duration(milliseconds: 300),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, animation) {
+                            transitionBuilder: (child, anim) {
                               final curved = CurvedAnimation(
-                                parent: animation,
+                                parent: anim,
                                 curve: Curves.easeOutCubic,
                               );
                               return FadeTransition(
                                 opacity: curved,
                                 child: SlideTransition(
                                   position: Tween<Offset>(
-                                    begin: const Offset(0.05, 0.04),
+                                    begin: const Offset(0.04, 0.03),
                                     end: Offset.zero,
                                   ).animate(curved),
                                   child: child,
@@ -246,11 +309,13 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                             },
                             child: KeyedSubtree(
                               key: ValueKey(_step),
-                              child: _buildStep(authUser),
+                              child: _buildStepContent(),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
+
+                        // CTA
                         _buildCta(),
                       ],
                     ),
@@ -258,115 +323,93 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
                 ),
               ],
             ),
+      ),
     );
   }
 
-  /// Fondo tipo arena: gradiente luminoso, banda volt diagonal tenue y el
-  /// número de paso en "ghost" para llenar sin recargar.
-  Widget _arenaBackdrop() {
-    return Stack(
-      fit: StackFit.expand,
+  // ─────────────────────── Header ───────────────────────
+
+  /// Número de paso en ghosting grande (02) + título bold + subtítulo.
+  Widget _buildStepHeader() {
+    const headers = [
+      ('Identidad de combate', 'Elige el alias y el avatar con el que te verán.'),
+      ('Tus métricas\nbase', 'Estos datos se requieren para ajustarnos a ti.'),
+      ('Define tu rango', 'Elige el nivel que mejor representa tu punto de partida.'),
+    ];
+    final (title, subtitle) = headers[_step - 1];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.white, Color(0xFFF1F2F5)],
-            ),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppColors.carbon,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            height: 1.1,
+            letterSpacing: -0.3,
           ),
         ),
-        Positioned(
-          top: -70,
-          right: -60,
-          child: Transform.rotate(
-            angle: 0.6,
-            child: Container(
-              width: 260,
-              height: 190,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.volt.withValues(alpha: 0.14),
-                    AppColors.volt.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          top: -8,
-          right: 4,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: Text(
-              '0$_step',
-              key: ValueKey(_step),
-              style: TextStyle(
-                color: AppColors.carbon.withValues(alpha: 0.045),
-                fontSize: 150,
-                fontWeight: FontWeight.w900,
-                height: 1.0,
-                letterSpacing: -6,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 20,
-          bottom: 6,
-          child: Text(
-            'RIVALFIT · FORJA TU PERFIL',
-            style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.35),
-              fontSize: 8.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 2.4,
-            ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: AppColors.grayMain.withValues(alpha: 0.9),
+            fontSize: 13,
+            height: 1.4,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildTopRow() {
+  // ─────────────────────── Contenido por paso ───────────────────────
+
+  Widget _buildStepContent() => switch (_step) {
+        1 => IdentityStep(
+            avatarImage: _avatarProvider(),
+            initials: _initials,
+            uploading: _uploadingAvatar,
+            onPickAvatar: _pickAvatar,
+            nameController: _nameController,
+            nameFocusNode: _nameFocusNode,
+            nameFocused: _nameFocused,
+            hasName: _hasName,
+            alias: _alias,
+            onNameChanged: () => setState(() {}),
+            onUnfocus: () => FocusScope.of(context).unfocus(),
+            ageController: _ageController,
+            ageFocusNode: _ageFocusNode,
+            ageFocused: _ageFocused,
+            hasAge: _hasValidAge,
+            onAgeChanged: () => setState(() {}),
+            onAgeUnfocus: () => FocusScope.of(context).unfocus(),
+          ),
+        2 => MetricsStep(
+            weightKg: _weightKg,
+            heightCm: _heightCm,
+            onWeightChanged: (v) => setState(() => _weightKg = v),
+            onHeightChanged: (v) => setState(() => _heightCm = v),
+          ),
+        _ => RankStep(
+            selectedLevel: _fitnessLevel,
+            onLevelSelected: (level) => setState(() => _fitnessLevel = level),
+          ),
+      };
+
+  // ─────────────────────── Top bar ───────────────────────
+
+  Widget _buildTopBar() {
     return Row(
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: AppColors.volt,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.volt.withValues(alpha: 0.35),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.bolt, color: Colors.black, size: 22),
-        ),
-        const SizedBox(width: 10),
-        const Text(
-          'RIVALFIT',
-          style: TextStyle(
-            color: AppColors.carbon,
-            fontSize: 15,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 2.2,
-          ),
-        ),
         const Spacer(),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.subtleBorder),
             boxShadow: [
               BoxShadow(
@@ -380,13 +423,13 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
             onPressed: _handleSkip,
             style: TextButton.styleFrom(
               foregroundColor: AppColors.grayMain,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: const Text(
               'Omitir',
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
           ),
         ),
@@ -394,466 +437,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
     );
   }
 
-  // ───────────────────────── Step header ─────────────────────────
-
-  Widget _buildStepHeader() {
-    return switch (_step) {
-      1 => _header(
-          'Tu alias de combate',
-          'Así te verán en la Liga y en el ranking. Hazlo sonar.'),
-      2 => _header(
-          'Define tu rango',
-          'El ranking ajustará tu reto. Elige tu punto de partida.'),
-      _ => _header(
-          'Tus métricas base',
-          'Las usamos para cálculos y rankings. Podrás ajustarlas después.'),
-    };
-  }
-
-  Widget _header(String title, String subtitle) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.carbon,
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  height: 1.1,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _RoundPill(step: _step),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: TextStyle(
-            color: AppColors.grayMain.withValues(alpha: 0.92),
-            fontSize: 13.5,
-            height: 1.45,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ───────────────────────── Steps ─────────────────────────
-
-  Widget _buildStep(User? authUser) {
-    return SingleChildScrollView(
-      physics: const ClampingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: switch (_step) {
-          1 => [..._buildIdentityStep()],
-          2 => [..._buildLevelStep()],
-          _ => [..._buildPhysicalStep()],
-        },
-      ),
-    );
-  }
-
-  List<Widget> _buildIdentityStep() {
-    return [
-      _fade('i', Center(
-        child: AvatarSelector(
-          image: _avatarProvider(),
-          initials: _initials,
-          uploading: _uploadingAvatar,
-          onTap: _pickAvatar,
-          radius: 44,
-        ),
-      ), delay: 0),
-      const SizedBox(height: 22),
-      _fade('n', _buildNameField(), delay: 90),
-      const SizedBox(height: 14),
-      _fade('r', _buildRivalCard(), delay: 180),
-    ];
-  }
-
-  Widget _buildNameField() {
-    final len = _nameController.text.length;
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: _nameFocused ? AppColors.volt : AppColors.subtleBorder,
-          width: _nameFocused ? 2 : 1,
-        ),
-        boxShadow: _nameFocused
-            ? [
-                BoxShadow(
-                  color: AppColors.volt.withValues(alpha: 0.20),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.045),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        children: [
-          TextField(
-            controller: _nameController,
-            focusNode: _nameFocusNode,
-            textInputAction: TextInputAction.done,
-            maxLength: 50,
-            onChanged: (_) => setState(() {}),
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
-            style: const TextStyle(
-              color: AppColors.carbon,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.2,
-            ),
-            cursorColor: AppColors.volt,
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: 'Tu alias',
-              hintStyle: TextStyle(
-                color: AppColors.carbon.withValues(alpha: 0.22),
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
-              ),
-              prefixText: '@ ',
-              prefixStyle: TextStyle(
-                color: AppColors.carbon.withValues(alpha: 0.35),
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-              ),
-              contentPadding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.people_alt_outlined,
-                  size: 12,
-                  color: AppColors.grayMain.withValues(alpha: 0.8),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  _hasName ? 'Se mostrará como @$_alias' : 'Así te conocerá tu Liga',
-                  style: TextStyle(
-                    color: AppColors.grayMain.withValues(alpha: 0.85),
-                    fontSize: 10.5,
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  '$len/50',
-                  style: TextStyle(
-                    color: AppColors.grayMain.withValues(alpha: 0.85),
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRivalCard() {
-    final hasName = _hasName;
-    final hasLevel = _fitnessLevel != null;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.subtleBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.bolt, size: 13, color: AppColors.carbon),
-                const SizedBox(width: 6),
-                Text(
-                  'VISTA PREVIA DEL RIVAL',
-                  style: TextStyle(
-                    color: AppColors.grayMain.withValues(alpha: 0.9),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.volt,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    'EN VIVO',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.avatarBackground,
-                    border: Border.all(color: AppColors.carbon, width: 1.2),
-                  ),
-                  child: _rivalPreviewImage(),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              hasName ? '@$_alias' : '@¿quién serás?',
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: hasName
-                                    ? AppColors.carbon
-                                    : AppColors.grayMain.withValues(alpha: 0.6),
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        hasLevel
-                            ? 'Nivel ${_fitnessLevel!.label}'
-                            : 'Nivel: sin definir',
-                        style: TextStyle(
-                          color: hasLevel
-                              ? _accent
-                              : AppColors.grayMain.withValues(alpha: 0.75),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _rivalPreviewImage() {
-    final image = _avatarProvider();
-    if (image == null) {
-      return Center(
-        child: Text(
-          _initials,
-          style: const TextStyle(
-            color: AppColors.carbon,
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-      );
-    }
-    return Image(
-      image: image,
-      fit: BoxFit.cover,
-      width: 48,
-      height: 48,
-    );
-  }
-
-  List<Widget> _buildLevelStep() {
-    return [
-      for (var i = 0; i < FitnessLevel.values.length; i++) ...[
-        _fade(
-          'l$i',
-          LevelCard(
-            level: FitnessLevel.values[i],
-            selected: _fitnessLevel == FitnessLevel.values[i],
-            dimmed: _fitnessLevel != null &&
-                _fitnessLevel != FitnessLevel.values[i],
-            onTap: () =>
-                setState(() => _fitnessLevel = FitnessLevel.values[i]),
-          ),
-          delay: 120 + i * 80,
-        ),
-        if (i < FitnessLevel.values.length - 1) const SizedBox(height: 12),
-      ],
-    ];
-  }
-
-  List<Widget> _buildPhysicalStep() {
-    return [
-      _fade('w', _buildStatTile(
-        MetricSlider(
-          label: 'Peso',
-          unit: 'kg',
-          min: 40,
-          max: 160,
-          step: 0.5,
-          value: _weightKg,
-          onChanged: (v) => setState(() => _weightKg = v),
-        ),
-      ), delay: 120),
-      const SizedBox(height: 14),
-      _fade('h', _buildStatTile(
-        MetricSlider(
-          label: 'Altura',
-          unit: 'cm',
-          min: 120,
-          max: 220,
-          step: 1,
-          value: _heightCm.toDouble(),
-          onChanged: (v) => setState(() => _heightCm = v.round()),
-        ),
-      ), delay: 200),
-      const SizedBox(height: 18),
-      _fade('c', _buildReadyCard(), delay: 280),
-    ];
-  }
-
-  Widget _buildStatTile(Widget child) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.subtleBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-      child: child,
-    );
-  }
-
-  Widget _buildReadyCard() {
-    final level = _fitnessLevel;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.carbon,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.volt,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              _initials,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '¿DISPUESTO A DOMINAR?',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  level != null
-                      ? '@$_alias · ${level.label}'
-                      : '@$_alias',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 11.5,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.bolt, color: AppColors.volt, size: 26),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────────────── CTA ─────────────────────────
+  // ─────────────────────── CTA ───────────────────────
 
   Widget _buildCta() {
     if (_step == 1) {
@@ -862,17 +446,16 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
         backgroundColor: AppColors.carbon,
         textColor: Colors.white,
         icon: Icons.arrow_forward,
-        onPressed: _hasName ? () => _goTo(2) : null,
+        onPressed: (_hasName && _hasValidAge) ? () => _goTo(2) : null,
       );
     }
     if (_step == 2) {
       return VoltButton(
-        text: 'Encontré mi ritmo',
-        backgroundColor: _accent,
-        textColor: _onAccent,
+        text: 'Continuar',
+        backgroundColor: AppColors.carbon,
+        textColor: Colors.white,
         icon: Icons.arrow_forward,
-        glowColor: _accent,
-        onPressed: _fitnessLevel != null ? () => _goTo(3) : null,
+        onPressed: () => _goTo(3),
       );
     }
     return VoltButton(
@@ -882,110 +465,7 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       icon: Icons.arrow_forward,
       iconColor: AppColors.volt,
       isLoading: _saving,
-      onPressed: _handleSave,
-    );
-  }
-
-  ImageProvider? _avatarProvider() {
-    if (_avatarBytes != null) return MemoryImage(_avatarBytes!);
-    final photo = ref.read(authControllerProvider).user?.photoUrl;
-    if (photo != null) return NetworkImage(photo);
-    return null;
-  }
-
-  // ───────────────────────── Helpers ─────────────────────────
-
-  Widget _fade(String key, Widget child, {required int delay}) {
-    return child.animate(
-      key: ValueKey(key),
-      delay: Duration(milliseconds: delay),
-    ).fadeIn(
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOut,
-    ).slideY(
-      begin: 0.06,
-      end: 0,
-      duration: const Duration(milliseconds: 340),
-      curve: Curves.easeOutCubic,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  Hilo de progreso (3 segmentos) y pill ROUND
-// ─────────────────────────────────────────────────────────────
-
-class _RoundProgress extends StatelessWidget {
-  final int step;
-  final Color accent;
-
-  const _RoundProgress({required this.step, required this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < 3; i++) ...[
-          Expanded(
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              height: 5,
-              margin: EdgeInsets.only(right: i < 2 ? 6 : 0),
-              decoration: BoxDecoration(
-                color: i + 1 < step
-                    ? AppColors.carbon
-                    : i + 1 == step
-                        ? accent
-                        : const Color(0xFFE5E5EA),
-                borderRadius: BorderRadius.circular(3),
-                boxShadow: i + 1 == step
-                    ? [
-                        BoxShadow(
-                          color: accent.withValues(alpha: 0.45),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _RoundPill extends StatelessWidget {
-  final int step;
-
-  const _RoundPill({required this.step});
-
-  @override
-  Widget build(BuildContext context) {
-    final isFinal = step == 3;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.volt,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.volt.withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Text(
-        isFinal ? 'FINAL ROUND' : 'ROUND ${step.toString().padLeft(2, '0')}/03',
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 10.5,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 1.1,
-        ),
-      ),
+      onPressed: _fitnessLevel != null ? _handleSave : null,
     );
   }
 }

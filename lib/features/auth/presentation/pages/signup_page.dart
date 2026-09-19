@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+
 import '../controllers/auth_controller.dart';
-import '../widgets/glass_background.dart';
-import '../widgets/glass_panel.dart';
-import '../widgets/glass_input_field.dart';
-import '../widgets/password_strength.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/auth_divider.dart';
 import '../widgets/brand_mark.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/glass_input_field.dart';
+import '../widgets/glass_panel.dart';
+import '../widgets/password_strength.dart';
+import '../widgets/primary_button.dart';
 import '../widgets/social_login_cards.dart';
 
 class SignUpPage extends ConsumerStatefulWidget {
@@ -63,7 +64,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
 
   void _onUsernameChanged(String value) {
     final trimmed = value.trim();
-    final valid = trimmed.length >= 3 &&
+    final valid =
+        trimmed.length >= 3 &&
         trimmed.length <= 15 &&
         RegExp(r'^[a-zA-Z0-9]+$').hasMatch(trimmed);
     if (valid == _usernameValid) return;
@@ -87,7 +89,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
     FocusScope.of(context).unfocus();
 
     setState(() => _submitting = true);
-    ref.read(authControllerProvider.notifier).signUpWithEmail(
+    ref
+        .read(authControllerProvider.notifier)
+        .signUpWithEmail(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           displayName: _nameController.text.trim(),
@@ -111,10 +115,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(msg),
-              backgroundColor: AppColors.danger,
-            ),
+            SnackBar(content: Text(msg), backgroundColor: AppColors.danger),
           );
         }
         ref.read(authControllerProvider.notifier).clearError();
@@ -173,7 +174,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                         '100% gratis. No requiere tarjeta',
                         style: TextStyle(
                           color: AppColors.textGray,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -203,7 +204,9 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           if (!emailRegex.hasMatch(value.trim())) {
                             return 'Ingresa un correo válido';
                           }
-                          if (_emailServerError != null) return _emailServerError;
+                          if (_emailServerError != null) {
+                            return _emailServerError;
+                          }
                           return null;
                         },
                       ),
@@ -262,7 +265,8 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                               ),
                               onPressed: () {
                                 setState(
-                                    () => _obscurePassword = !_obscurePassword);
+                                  () => _obscurePassword = !_obscurePassword,
+                                );
                               },
                             ),
                           ],
@@ -331,14 +335,15 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Sign up button
                       PrimaryButton(
                         text: 'Crear Cuenta',
                         isLoading: _submitting,
-                        onPressed:
-                            _acceptedTerms && !_submitting ? _handleSignUp : null,
+                        onPressed: _acceptedTerms && !_submitting
+                            ? _handleSignUp
+                            : null,
                       ),
                       const SizedBox(height: 18),
 
@@ -367,7 +372,7 @@ class _SignUpPageState extends ConsumerState<SignUpPage> {
                           TextSpan(
                             style: const TextStyle(
                               color: AppColors.textGray,
-                              fontSize: 14,
+                              fontSize: 13,
                             ),
                             children: [
                               const TextSpan(text: '¿Ya tienes cuenta? '),

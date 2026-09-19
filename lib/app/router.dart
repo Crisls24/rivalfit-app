@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_providers.dart';
-import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
-import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
-import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/recovery_controller.dart';
+import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
+import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
+import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
 
@@ -88,7 +88,8 @@ String? _resolveRedirect(
   // status=authenticated y un perfil a medio terminar; sin este bloque el
   // router lo echaria a /complete-profile o /home en mitad del cambio de
   // contrasena. En step=success se libera para permitir el regreso a /login.
-  final midRecovery = auth.isRecovering &&
+  final midRecovery =
+      auth.isRecovering &&
       (recoveryStep == RecoveryStep.otp ||
           recoveryStep == RecoveryStep.password);
   if (midRecovery) {
