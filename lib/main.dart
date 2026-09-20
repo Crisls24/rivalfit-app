@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'app/router.dart';
 import 'app/theme/app_theme.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/auth/presentation/controllers/auth_providers.dart';
 import 'features/auth/presentation/controllers/recovery_controller.dart';
+import 'features/league/presentation/controllers/league_providers.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,9 +74,31 @@ class _RivalFitAppState extends ConsumerState<RivalFitApp> {
   /// com.rivalfit.rivalfit://reset?email=...&code=...
   ///
   /// Prellena y verifica automaticamente el codigo de recuperacion enviado por
-  /// correo. El enlace puede emitirse dos veces (initial link + stream), por eso
-  /// se deduplica por firma dentro de una ventana corta.
+  /// correo. Tambien atiende los enlaces de invitacion a una liga
+  /// (host=join u https://fit-api.iscx.site/join/CODE). El enlace puede
+  /// emitirse dos veces (initial link + stream), por eso se deduplica por
+  /// firma dentro de una ventana corta.
   void _handleUri(Uri uri) {
+    final joinCode = _joinCodeFor(uri);
+    if (joinCode != null) {
+      if (!_claimLink('join|$joinCode')) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final auth = ref.read(authControllerProvider);
+        if (auth.status == AuthStatus.authenticated) {
+          ref.read(routerProvider).go('/join/$joinCode');
+        } else {
+          // Sin sesion: guardamos el codigo y pasamos por login. Cuando la
+          // sesion se complete (ver _checkPendingJoin), abrimos la invitacion.
+          ref
+              .read(leagueControllerProvider.notifier)
+              .setPendingJoinCode(joinCode);
+          ref.read(routerProvider).go('/login');
+        }
+      });
+      return;
+    }
+
     final query = uri.queryParameters;
     final isReset = uri.host == 'reset' ||
         uri.path.contains('reset') ||
@@ -90,16 +114,7 @@ class _RivalFitAppState extends ConsumerState<RivalFitApp> {
 
     // El '+' del correo se decodifica como espacio al parsear el query string.
     final email = rawEmail.replaceAll(' ', '+');
-    final signature = '$email|$code';
-
-    final now = DateTime.now();
-    if (_lastSignature == signature &&
-        _lastHandledAt != null &&
-        now.difference(_lastHandledAt!) < const Duration(seconds: 3)) {
-      return;
-    }
-    _lastSignature = signature;
-    _lastHandledAt = now;
+    if (!_claimLink('$email|$code')) return;
 
     // Marca la sesion como "en recuperacion" ANTES de navegar: el guard del
     // router solo deja entrar a /recover si isRecovering ya es true.
@@ -118,8 +133,57 @@ class _RivalFitAppState extends ConsumerState<RivalFitApp> {
     });
   }
 
+  /// Extrae el codigo de invitacion si el URI es de tipo join
+  /// (com.rivalfit.rivalfit://join/CODE o https://fit-api.iscx.site/join/CODE).
+  String? _joinCodeFor(Uri uri) {
+    final segments = uri.pathSegments;
+    if (uri.host == 'join' && segments.isNotEmpty) {
+      return _normalizeJoinCode(segments.first);
+    }
+    if (uri.host == 'fit-api.iscx.site' &&
+        segments.isNotEmpty &&
+        segments.first == 'join' &&
+        segments.length > 1) {
+      return _normalizeJoinCode(segments[1]);
+    }
+    return null;
+  }
+
+  static final RegExp _joinCodeRegex = RegExp(r'^[A-Z2-9]{6}$');
+
+  String? _normalizeJoinCode(String raw) {
+    final code = raw.trim().toUpperCase();
+    return _joinCodeRegex.hasMatch(code) ? code : null;
+  }
+
+  /// Marca el enlace como atendido. Devuelve false si ya se proceso una firma
+  /// identica en los ultimos 3 segundos (initial link + stream duplicados).
+  bool _claimLink(String signature) {
+    final now = DateTime.now();
+    if (_lastSignature == signature &&
+        _lastHandledAt != null &&
+        now.difference(_lastHandledAt!) < const Duration(seconds: 3)) {
+      return false;
+    }
+    _lastSignature = signature;
+    _lastHandledAt = now;
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Invitacion pendiente: si el usuario se loguea (o termina el perfil y
+    // vuelve al home), se abre la pagina de invitacion guardada.
+    ref.listen<AuthState>(authControllerProvider, (prev, next) {
+      final wasAuthed = prev?.status == AuthStatus.authenticated;
+      if (!wasAuthed && next.status == AuthStatus.authenticated) {
+        final pending =
+            ref.read(leagueControllerProvider).pendingJoinCode;
+        if (pending != null && mounted) {
+          context.go('/join/$pending');
+        }
+      }
+    });
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(

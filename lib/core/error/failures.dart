@@ -18,3 +18,7 @@ class AuthFailure extends Failure {
 class CacheFailure extends Failure {
   const CacheFailure({super.message = 'Error de cache'});
 }
+
+class NotFoundFailure extends Failure {
+  const NotFoundFailure({super.message = 'No se encontró lo solicitado'});
+}

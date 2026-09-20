@@ -35,11 +35,13 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
   bool _obscureConfirm = true;
   PasswordStrength _newPasswordStrength = PasswordStrength.none;
   Timer? _successTimer;
+  late final AuthController _auth;
 
   @override
   void initState() {
     super.initState();
-    ref.read(authControllerProvider.notifier).setRecovering(true);
+    _auth = ref.read(authControllerProvider.notifier);
+    _auth.setRecovering(true);
     _newPasswordController.addListener(_onNewPasswordChanged);
   }
 
@@ -50,7 +52,7 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
     _emailController.dispose();
     _newPasswordController.dispose();
     _confirmController.dispose();
-    ref.read(authControllerProvider.notifier).setRecovering(false);
+    _auth.setRecovering(false);
     super.dispose();
   }
 
@@ -203,24 +205,28 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
       children: [
         _buildBrandHeader(),
         const SizedBox(height: 20),
-        const Text(
-          'Recupera tu acceso',
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
+        Center(
+          child: const Text(
+            'Recupera tu acceso',
+            style: TextStyle(
+              color: AppColors.textWhite,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        Text(
-          'Ingresa el correo asociado a tu cuenta y te enviaremos un código para continuar.',
-          style: const TextStyle(
-            color: AppColors.textGray,
-            fontSize: 14,
-            height: 1.4,
+        Center(
+          child: Text(
+            'Ingresa el correo asociado a tu cuenta y te enviaremos un código para continuar.',
+            style: const TextStyle(
+              color: AppColors.textGray,
+              fontSize: 14,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
         GlassInputField(
@@ -287,35 +293,39 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
       children: [
         _buildBrandHeader(),
         const SizedBox(height: 20),
-        const Text(
-          'Revisa tu correo',
-          style: TextStyle(
-            color: AppColors.textWhite,
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
+        Center(
+          child: const Text(
+            'Revisa tu correo',
+            style: TextStyle(
+              color: AppColors.textWhite,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
-        Text.rich(
-          TextSpan(
-            style: const TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
-              height: 1.4,
-            ),
-            children: [
-              const TextSpan(text: 'Enviamos un código de verificación a '),
-              TextSpan(
-                text: state.maskedEmail,
-                style: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
+        Center(
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                color: AppColors.textGray,
+                fontSize: 14,
+                height: 1.4,
               ),
-            ],
+              children: [
+                const TextSpan(text: 'Enviamos un código de verificación a '),
+                TextSpan(
+                  text: state.maskedEmail,
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 28),
         OtpCodeInput(
@@ -341,14 +351,16 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
           const SizedBox(height: 2),
         if (state.errorMessage != null) ...[
           const SizedBox(height: 10),
-          Text(
-            state.errorMessage!,
-            style: const TextStyle(
-              color: AppColors.danger,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          Center(
+            child: Text(
+              state.errorMessage!,
+              style: const TextStyle(
+                color: AppColors.danger,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
         const SizedBox(height: 24),
@@ -396,24 +408,28 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
         children: [
           _buildBrandHeader(),
           const SizedBox(height: 20),
-          const Text(
-            'Crea una nueva contraseña',
-            style: TextStyle(
-              color: AppColors.textWhite,
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
+          Center(
+            child: const Text(
+              'Crea una nueva contraseña',
+              style: TextStyle(
+                color: AppColors.textWhite,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Establece una nueva contraseña para volver a entrar a RivalFit.',
-            style: TextStyle(
-              color: AppColors.textGray,
-              fontSize: 14,
-              height: 1.4,
+          Center(
+            child: const Text(
+              'Establece una nueva contraseña para volver a entrar a RivalFit.',
+              style: TextStyle(
+                color: AppColors.textGray,
+                fontSize: 14,
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
           GlassInputField(

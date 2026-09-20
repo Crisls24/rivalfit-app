@@ -54,6 +54,28 @@
                     android:host="fit-api.iscx.site"
                     android:pathPrefix="/reset"/>
             </intent-filter>
+            <!-- Invitacion de liga: enlaces compartidos desde la app para
+                 unirse (com.rivalfit.rivalfit://join/CODE). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="com.rivalfit.rivalfit"
+                    android:host="join"/>
+            </intent-filter>
+            <!-- Invitacion de liga via https (fit-api.iscx.site/join/CODE).
+                 REQUIERE añadir /join al assetlinks.json de la infra para
+                 autoVerify; mientras tanto Android la abre en el navegador. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:scheme="https"
+                    android:host="fit-api.iscx.site"
+                    android:pathPrefix="/join"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

@@ -287,14 +287,18 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     state = state.copyWith(profileSkippedThisSession: true);
   }
 
-  /// Sube la foto de perfil (no bloquea la UI). Devuelve null si falla.
-  Future<String?> uploadAvatar({
+  /// Sube la foto de perfil (no bloquea la UI). Devuelve la URL publica si
+  /// tiene exito y, en caso de fallo, un mensaje legible para el usuario.
+  Future<({String? url, String? error})> uploadAvatar({
     required Uint8List bytes,
     required String fileName,
   }) async {
-    if (state.status != AuthStatus.authenticated) return null;
+    if (state.status != AuthStatus.authenticated) {
+      return (url: null, error: 'No autenticado');
+    }
     final result = await _repo.uploadAvatar(bytes: bytes, fileName: fileName);
-    return result.url;
+    if (result.url != null) return (url: result.url, error: null);
+    return (url: null, error: result.error?.message ?? 'No se pudo subir la foto');
   }
 
   void clearError() {

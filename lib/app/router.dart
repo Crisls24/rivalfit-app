@@ -8,7 +8,11 @@ import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
+import 'package:rivalfit/features/exercise/presentation/pages/exercise_placeholder_page.dart';
+import 'package:rivalfit/features/exercise/presentation/pages/session_placeholder_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
+import 'package:rivalfit/features/league/presentation/pages/league_join_page.dart';
+import 'package:rivalfit/features/league/presentation/pages/league_ranking_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -63,6 +67,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/home',
         name: 'home',
         builder: (context, state) => const HomePage(),
+      ),
+      GoRoute(
+        path: '/session',
+        name: 'session',
+        builder: (context, state) => const SessionPlaceholderPage(),
+      ),
+      GoRoute(
+        path: '/exercise/:id',
+        name: 'exercise',
+        builder: (context, state) => const ExercisePlaceholderPage(),
+      ),
+      GoRoute(
+        path: '/league/ranking',
+        name: 'league-ranking',
+        builder: (context, state) => const LeagueRankingPage(),
+      ),
+      GoRoute(
+        path: '/join/:code',
+        name: 'join',
+        builder: (context, state) =>
+            LeagueJoinPage(code: state.pathParameters['code'] ?? ''),
       ),
     ],
   );

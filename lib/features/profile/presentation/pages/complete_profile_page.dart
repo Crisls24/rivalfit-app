@@ -155,20 +155,22 @@ class _CompleteProfilePageState extends ConsumerState<CompleteProfilePage> {
       _uploadingAvatar = true;
     });
 
-    final url = await ref
+    final result = await ref
         .read(authControllerProvider.notifier)
         .uploadAvatar(bytes: bytes, fileName: file.name);
 
     if (!mounted) return;
     setState(() {
       _uploadingAvatar = false;
-      if (url != null) _avatarUrl = url;
+      if (result.url != null) _avatarUrl = result.url;
     });
 
-    if (url != null) {
+    if (result.url != null) {
       _showSnack('Foto de perfil actualizada', bg: AppColors.success);
     } else {
-      _showSnack('Se mostrara solo en este dispositivo por ahora');
+      _showSnack(
+        'No se pudo subir la foto. ${result.error ?? 'Inténtalo de nuevo.'}',
+      );
     }
   }
 
