@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
@@ -8,8 +8,7 @@ import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
-import 'package:rivalfit/features/exercise/presentation/pages/exercise_placeholder_page.dart';
-import 'package:rivalfit/features/exercise/presentation/pages/session_placeholder_page.dart';
+import 'package:rivalfit/features/exercise/presentation/pages/coming_soon_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_join_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_ranking_page.dart';
@@ -71,12 +70,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/session',
         name: 'session',
-        builder: (context, state) => const SessionPlaceholderPage(),
+        builder: (context, state) => const ComingSoonPage(
+          title: 'Empezar entrenamiento',
+          icon: Icons.videocam_outlined,
+          message:
+              'La sesión con cámara y verificación por IA llega en la siguiente fase.',
+        ),
       ),
       GoRoute(
         path: '/exercise/:id',
         name: 'exercise',
-        builder: (context, state) => const ExercisePlaceholderPage(),
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? 'ejercicio';
+          final title = id[0].toUpperCase() + id.substring(1);
+          return ComingSoonPage(
+            title: title,
+            icon: Icons.sports_gymnastics_outlined,
+            message:
+                'El tutorial y el conteo verificado para $title llegan en la siguiente fase.',
+          );
+        },
       ),
       GoRoute(
         path: '/league/ranking',

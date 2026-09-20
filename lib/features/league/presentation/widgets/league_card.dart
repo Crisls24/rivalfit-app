@@ -143,7 +143,7 @@ class LeagueCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _FriendsPreview(members: ranking.take(3).toList()),
+          _FriendsPreview(members: ranking.take(3).toList(), onInvite: onInvite),
           const SizedBox(height: 10),
           Center(
             child: TextButton(
@@ -366,8 +366,9 @@ class _FullBadge extends StatelessWidget {
 
 class _FriendsPreview extends StatelessWidget {
   final List<LeagueMember> members;
+  final VoidCallback onInvite;
 
-  const _FriendsPreview({required this.members});
+  const _FriendsPreview({required this.members, required this.onInvite});
 
   @override
   Widget build(BuildContext context) {
@@ -384,15 +385,23 @@ class _FriendsPreview extends StatelessWidget {
     return Wrap(
       spacing: 10,
       runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final member in members) _FriendPill(member: member),
         if (members.length < 3)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: Icon(
-              Icons.add_circle_outline_rounded,
-              size: 20,
-              color: AppColors.grayMain,
+          Padding(
+            padding: const EdgeInsets.all(4),
+            child: InkWell(
+              onTap: onInvite,
+              borderRadius: BorderRadius.circular(20),
+              child: const Padding(
+                padding: EdgeInsets.all(2),
+                child: Icon(
+                  Icons.add_circle_outline_rounded,
+                  size: 20,
+                  color: AppColors.grayMain,
+                ),
+              ),
             ),
           ),
       ],

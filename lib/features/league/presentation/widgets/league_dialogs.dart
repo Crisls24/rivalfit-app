@@ -335,7 +335,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   }
 }
 
-/// Ristra de beneficios que comunica de un vistazo qué obtienes.
+/// Fila de beneficios que comunica de un vistazo qué obtienes.
 class _BenefitsRow extends StatelessWidget {
   const _BenefitsRow();
 

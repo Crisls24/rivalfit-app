@@ -155,6 +155,12 @@ class LeagueRepositoryImpl implements LeagueRepository {
         lower.contains('policy')) {
       return 'No tienes permiso para hacer eso en esta liga.';
     }
+    if (lower.contains('unauthorized') ||
+        lower.contains('jwt expired') ||
+        lower.contains('invalid jwt') ||
+        lower.contains('could not read jwt')) {
+      return 'Tu sesión expiró. Inicia sesión de nuevo.';
+    }
     return raw;
   }
 }

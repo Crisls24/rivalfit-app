@@ -41,7 +41,7 @@ class LeagueMember {
   });
 }
 
-/// Resultad de busqueda por @alias para invitar amigos.
+/// Resultado de busqueda por @alias para invitar amigos.
 class UserSearchResult {
   final String id;
   final String displayName;

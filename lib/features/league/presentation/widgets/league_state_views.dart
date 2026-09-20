@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 
 /// Tarjeta de carga mientras se consulta la liga.
 class LeagueLoadingCard extends StatelessWidget {
@@ -89,19 +90,24 @@ class LeagueErrorCard extends StatelessWidget {
   }
 }
 
-/// Estado sin liga. Hero oscuro (carbon + lima) que vende la competencia y
-/// una CTA para traer amigos: en vez de un aviso pasivo de "tus amigos
-/// apareceran aqui", invita a compartir la app para conseguir rivales.
+/// Estado sin liga (cuenta nueva). El hero oscuro funciona como la sala de
+/// espera de la liga: emblema, "El primer puesto te espera", contador 0 / 10,
+/// espacios vacios por cubrir y las dos acciones (crear / unirse). Debajo, un
+/// link discreto permite invitar amigos a la app mientras se forma el clan;
+/// compartir el codigo cobra peso recien cuando ya existe la liga.
+///
+/// Identidad: pertenencia + competencia. "Clan" como grupo de amigos que se
+/// reune a competir, sin estetica de videojuego.
 class LeagueEmptyState extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onJoin;
-  final VoidCallback onShareApp;
+  final VoidCallback onInviteFriends;
 
   const LeagueEmptyState({
     super.key,
     required this.onCreate,
     required this.onJoin,
-    required this.onShareApp,
+    required this.onInviteFriends,
   });
 
   @override
@@ -109,17 +115,58 @@ class LeagueEmptyState extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HeroCard(
-          onCreate: onCreate,
-          onJoin: onJoin,
-        ),
+        _HeroCard(onCreate: onCreate, onJoin: onJoin),
         const SizedBox(height: 16),
-        _ShareCard(onShareApp: onShareApp),
+        // Link discreto: invita a la app sin ruido visual.
+        Center(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onInviteFriends,
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person_add_outlined,
+                      size: 16,
+                      color: AppColors.carbon,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Invita a tus amigos',
+                      style: TextStyle(
+                        color: AppColors.carbon,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      '›',
+                      style: TextStyle(
+                        color: AppColors.grayMain,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
 }
 
+/// Arena oscura: composicion centrada que une identidad de liga (emblema),
+/// sensacion de competencia por comenzar (contador + espacios vacios) y las
+/// dos acciones posibles. Sin chips ni explicaciones extra.
 class _HeroCard extends StatelessWidget {
   final VoidCallback onCreate;
   final VoidCallback onJoin;
@@ -130,93 +177,87 @@ class _HeroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 26, 24, 22),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
       decoration: BoxDecoration(
         color: AppColors.carbon,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppColors.carbon.withValues(alpha: 0.18),
+            color: AppColors.carbon.withValues(alpha: 0.16),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: AppColors.volt,
-                  borderRadius: BorderRadius.circular(17),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.volt.withValues(alpha: 0.5),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.workspaces_filled,
-                  size: 28,
-                  color: AppColors.carbon,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Aún no tienes liga',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                        height: 1.15,
-                      ),
-                    ),
-                    SizedBox(height: 5),
-                    Text(
-                      'Pero ya es hora de cambiar eso.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          // Identidad de la sala de espera: emblema de liga contenido.
+          const LeagueEmblem(size: 76),
+          const SizedBox(height: 22),
           const Text(
-            'Una liga es tu reto de la semana: junta a tus amigos y el que acumule más reps gana el top 1 del ranking.',
+            'EL PRIMER PUESTO\nTE ESPERA',
+            textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
+              color: Colors.white,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppColors.volt.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              '0 / 10 competidores',
+              style: TextStyle(
+                color: AppColors.volt,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Crea tu liga y reúne a tus rivales.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.62),
+              fontSize: 13.5,
               fontWeight: FontWeight.w500,
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _HeroPill(icon: Icons.group_rounded, label: 'Hasta 10'),
-              _HeroPill(icon: Icons.tag_rounded, label: 'Código'),
-              _HeroPill(icon: Icons.sports_gymnastics_rounded, label: 'Ranking semanal'),
-              _HeroPill(icon: Icons.workspaces_outline, label: 'Reto entre amigos'),
+          const SizedBox(height: 22),
+          // Sala de espera: posiciones vacias que llenara la competencia.
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _CompetitorSlot(),
+              SizedBox(width: 16),
+              _CompetitorSlot(),
+              SizedBox(width: 16),
+              _CompetitorSlot(),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 10),
+          Text(
+            'Espacios esperando a tus rivales',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.38),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 26),
+          // Accion principal: crear liga.
           Material(
             color: AppColors.volt,
             borderRadius: BorderRadius.circular(16),
@@ -243,32 +284,42 @@ class _HeroCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
+          // Accion secundaria: unirse por invitacion. Boton sutil a lo ancho,
+          // con menos peso visual que el volt: solo borde y texto centrado.
+          Text(
+            '¿Ya tienes una invitación?',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
           Material(
             color: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Colors.white24, width: 1.5),
-            ),
+            borderRadius: BorderRadius.circular(16),
             child: InkWell(
               onTap: onJoin,
               borderRadius: BorderRadius.circular(16),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.tag_rounded, size: 18, color: Colors.white),
-                    SizedBox(width: 8),
-                    Text(
-                      'Unirme con un código',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Text(
+                  'Unirme a una liga',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -279,138 +330,27 @@ class _HeroCard extends StatelessWidget {
   }
 }
 
-class _HeroPill extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _HeroPill({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.glowNeutral,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: AppColors.volt),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Card accionable para traer amigos: compartir la app y juntar rivales, en
-/// lugar de un simple aviso de que "los amigos apareceran aqui".
-class _ShareCard extends StatelessWidget {
-  final VoidCallback onShareApp;
-
-  const _ShareCard({required this.onShareApp});
+/// Posicion vacia del podio: una silueta en difuminado que espera a un
+/// competidor. El mismo slot se reutilizara para el ranking con rivales.
+class _CompetitorSlot extends StatelessWidget {
+  const _CompetitorSlot();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.subtleBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1.2,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.volt.withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: const Icon(
-              Icons.person_add_alt_1_rounded,
-              size: 22,
-              color: AppColors.carbon,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '¿Sin amigos en la app?',
-                  style: TextStyle(
-                    color: AppColors.carbon,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  'Invita a tus amigos y compitan hombro a hombro. Una liga sin rivales no es liga.',
-                  style: TextStyle(
-                    color: AppColors.grayMain.withValues(alpha: 0.8),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Material(
-                  color: AppColors.carbon,
-                  borderRadius: BorderRadius.circular(13),
-                  child: InkWell(
-                    onTap: onShareApp,
-                    borderRadius: BorderRadius.circular(13),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.share_rounded,
-                            size: 16,
-                            color: AppColors.volt,
-                          ),
-                          SizedBox(width: 7),
-                          Text(
-                            'Invitar a mis amigos',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: Icon(
+        Icons.person_outline_rounded,
+        size: 19,
+        color: Colors.white.withValues(alpha: 0.22),
       ),
     );
   }

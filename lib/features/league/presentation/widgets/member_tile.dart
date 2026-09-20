@@ -101,7 +101,7 @@ class _PositionBadge extends StatelessWidget {
         '$position',
         style: TextStyle(
           color: isPodium ? AppColors.carbon : AppColors.grayMain,
-          fontSize: position <= 99 ? 12.5 : 10,
+          fontSize: 12.5,
           fontWeight: FontWeight.w900,
         ),
       ),

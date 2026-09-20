@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
-/// Pantalla de sesión (placeholder de la Fase 1). Aquí vivirá el flujo
-/// selector de ejercicio -> tutorial -> cámara con conteo por IA (Fase 2).
-class SessionPlaceholderPage extends StatelessWidget {
-  const SessionPlaceholderPage({super.key});
+/// Placeholder generico de la Fase 1: pantalla con AppBar, icono destacado y
+/// mensaje "Proximamente". Lo usan las rutas de detalle de ejercicio y de
+/// sesion real hasta que lleguen el tutorial animado y la camara con IA.
+class ComingSoonPage extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String message;
+
+  const ComingSoonPage({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.message,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,9 +24,9 @@ class SessionPlaceholderPage extends StatelessWidget {
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.carbon,
         elevation: 0,
-        title: const Text(
-          'Empezar entrenamiento',
-          style: TextStyle(
+        title: Text(
+          title,
+          style: const TextStyle(
             color: AppColors.carbon,
             fontSize: 17,
             fontWeight: FontWeight.w800,
@@ -37,11 +47,7 @@ class SessionPlaceholderPage extends StatelessWidget {
                     color: AppColors.volt.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: const Icon(
-                    Icons.videocam_outlined,
-                    size: 34,
-                    color: AppColors.carbon,
-                  ),
+                  child: Icon(icon, size: 34, color: AppColors.carbon),
                 ),
                 const SizedBox(height: 20),
                 const Text(
@@ -54,7 +60,7 @@ class SessionPlaceholderPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'La sesión con cámara y verificación por IA llega en la siguiente fase.',
+                  message,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.grayMain.withValues(alpha: 0.85),

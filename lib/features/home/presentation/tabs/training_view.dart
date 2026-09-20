@@ -8,6 +8,7 @@ import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
 
 import '../widgets/exercise_card.dart';
 import '../widgets/weekly_progress_card.dart';
+import 'package:rivalfit/app/widgets/app_card.dart';
 
 /// Tab "Entrenar": el centro de la experiencia. Saludo con avatar, resumen
 /// semanal, CTA para iniciar sesion y el catalogo de ejercicios verificados.
@@ -257,13 +258,10 @@ class _LeagueSnapshot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        color: AppColors.panelSoft,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.subtleBorder),
-      ),
+      color: AppColors.panelSoft,
+      showShadow: false,
       child: Row(
         children: [
           Container(

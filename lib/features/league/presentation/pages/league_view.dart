@@ -11,9 +11,9 @@ import 'package:rivalfit/features/league/presentation/widgets/league_card.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_state_views.dart';
 
-/// Tab "Liga": compite contra tus amigos esta semana. Sin liga muestra la
-/// accion de crear/unirse; con liga muestra la clasificacion top 5, el enlace
-/// de invitacion (o el aviso de liga completa) y el preview de amigos.
+/// Tab "Liga": compite contra tus amigos y demuestra tu disciplina. Sin liga
+/// muestra la accion de crear/unirse; con liga muestra la clasificacion top 5,
+/// el enlace de invitacion (o el aviso de liga completa) y el preview.
 class LeagueView extends ConsumerStatefulWidget {
   const LeagueView({super.key});
 
@@ -64,7 +64,7 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
             const SizedBox(height: 5),
             Text(
               state.league == null
-                  ? 'Compite contra tus amigos esta semana.'
+                  ? 'Compite contra tus amigos. Demuestra tu disciplina.'
                   : '${state.league!.name} · competencia semanal',
               style: const TextStyle(
                 color: AppColors.grayMain,
@@ -85,7 +85,7 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
                   ? LeagueEmptyState(
                       onCreate: _openCreateDialog,
                       onJoin: _openJoinDialog,
-                      onShareApp: _shareApp,
+                      onInviteFriends: _shareApp,
                     )
                   : LeagueCard(
                       league: state.league!,
@@ -139,16 +139,11 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
   }
 
   Future<void> _shareApp() async {
-    final displayName =
-        ref.watch(authControllerProvider).user?.displayName ?? 'Yo';
-    await SharePlus.instance.share(
-      ShareParams(
-        text: 'Me estoy tomando el entrenamiento en serio y te invito a '
-            'RivalFit: creamos una liga, sumamos repeticiones y el mejor '
-            'gana el ranking semanal. $displayName prepara el reto — ¿te '
-            'apuntas?',
-      ),
-    );
+    // Sin liga aun no hay codigo que compartir: invita a la app mientras se
+    // forma el clan. Con liga, la invitacion con codigo vive en el invite sheet.
+    const message = 'Me estoy entrenando en serio con RivalFit. '
+        'Reúno a mi clan y compito cada semana. ¿Te apuntas?';
+    await SharePlus.instance.share(ShareParams(text: message));
   }
 
   Future<void> _confirmLeave() async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 
 /// Tab "Ajustes": edición de perfil (próximo flujo), preferencias de
@@ -103,19 +104,8 @@ class SettingsView extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.subtleBorder),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.045),
-                    blurRadius: 14,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
+            AppCard(
+              padding: EdgeInsets.zero,
               child: Column(
                 children: [
                   _SettingsTile(
@@ -145,12 +135,9 @@ class SettingsView extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.subtleBorder),
-              ),
+            AppCard(
+              padding: EdgeInsets.zero,
+              showShadow: false,
               child: _SettingsTile(
                 icon: Icons.logout_rounded,
                 title: 'Cerrar sesión',

@@ -172,6 +172,4 @@ class LeagueController extends StateNotifier<LeagueState> {
     }
     return code;
   }
-
-  void clearError() => state = state.copyWith(errorMessage: null);
 }

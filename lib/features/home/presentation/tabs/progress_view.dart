@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/app/widgets/app_card.dart';
+import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
 
 /// Tab "Mi progreso": rango global (PRD seccion 4.5), rango por grupo
 /// muscular (Bronce -> Diamante) e insignias. Los datos llegan en la Fase 3;
-/// aquí se muestra la estructura con contadores en cero.
+/// aqui se muestra la estructura con contadores en cero.
 class ProgressView extends StatelessWidget {
   const ProgressView({super.key});
 
@@ -55,23 +57,9 @@ class ProgressView extends StatelessWidget {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 2.0,
-              children: const [
-                _MuscleCard(
-                  icon: Icons.fitness_center_rounded,
-                  label: 'Pecho y brazos',
-                ),
-                _MuscleCard(
-                  icon: Icons.accessibility_new_rounded,
-                  label: 'Piernas',
-                ),
-                _MuscleCard(
-                  icon: Icons.sports_gymnastics,
-                  label: 'Core',
-                ),
-                _MuscleCard(
-                  icon: Icons.monitor_heart_rounded,
-                  label: 'Cardio',
-                ),
+              children: [
+                for (final group in MuscleGroup.values)
+                  _MuscleCard(group: group),
               ],
             ),
             const SizedBox(height: 24),
@@ -84,42 +72,7 @@ class ProgressView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: AppColors.panelSoft,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: AppColors.subtleBorder),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.emoji_events_outlined,
-                    size: 42,
-                    color: AppColors.grayMain.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Aún no tienes insignias',
-                    style: TextStyle(
-                      color: AppColors.grayMain.withValues(alpha: 0.9),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Se desbloquean al alcanzar hitos (rachas, marcas y rangos).',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.grayMain.withValues(alpha: 0.75),
-                      fontSize: 12,
-                      height: 1.45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const _BadgesEmpty(),
           ],
         ),
       ),
@@ -134,20 +87,7 @@ class _RankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.subtleBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -227,20 +167,16 @@ class _RankCard extends StatelessWidget {
 }
 
 class _MuscleCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
+  final MuscleGroup group;
 
-  const _MuscleCard({required this.icon, required this.label});
+  const _MuscleCard({required this.group});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.subtleBorder),
-      ),
+      borderRadius: BorderRadius.circular(18),
+      showShadow: false,
       child: Row(
         children: [
           Container(
@@ -250,7 +186,7 @@ class _MuscleCard extends StatelessWidget {
               color: AppColors.volt.withValues(alpha: 0.16),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 17, color: AppColors.carbon),
+            child: Icon(group.icon, size: 17, color: AppColors.carbon),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -259,7 +195,7 @@ class _MuscleCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  label,
+                  group.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -281,6 +217,47 @@ class _MuscleCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgesEmpty extends StatelessWidget {
+  const _BadgesEmpty();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.all(24),
+      color: AppColors.panelSoft,
+      showShadow: false,
+      child: Column(
+        children: [
+          Icon(
+            Icons.emoji_events_outlined,
+            size: 42,
+            color: AppColors.grayMain.withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Aún no tienes insignias',
+            style: TextStyle(
+              color: AppColors.grayMain.withValues(alpha: 0.9),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'Se desbloquean al alcanzar hitos (rachas, marcas y rangos).',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.grayMain.withValues(alpha: 0.75),
+              fontSize: 12,
+              height: 1.45,
             ),
           ),
         ],
