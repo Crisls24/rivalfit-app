@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'app/router.dart';
 import 'app/theme/app_theme.dart';
+import 'core/deeplinks/deep_link.dart';
+import 'core/deeplinks/deep_link_parser.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/auth/presentation/controllers/auth_providers.dart';
 import 'features/auth/presentation/controllers/recovery_controller.dart';
@@ -71,89 +73,70 @@ class _RivalFitAppState extends ConsumerState<RivalFitApp> {
     }
   }
 
-  /// com.rivalfit.rivalfit://reset?email=...&code=...
+  /// Resuelve los enlaces que abren la app:
   ///
-  /// Prellena y verifica automaticamente el codigo de recuperacion enviado por
-  /// correo. Tambien atiende los enlaces de invitacion a una liga
-  /// (host=join u https://fit-api.iscx.site/join/CODE). El enlace puede
-  /// emitirse dos veces (initial link + stream), por eso se deduplica por
-  /// firma dentro de una ventana corta.
+  /// * Invitacion a liga (host=join u https://fit-api.iscx.site/join/CODE).
+  /// * Recuperacion de contrasena (com.rivalfit.rivalfit://reset?.. o el
+  ///   enlace https /reset?..): prellena y verifica el codigo OTP.
+  ///
+  /// Un mismo enlace puede emitirse dos veces (initial link + stream), por eso
+  /// se deduplica por firma dentro de una ventana corta.
   void _handleUri(Uri uri) {
-    final joinCode = _joinCodeFor(uri);
-    if (joinCode != null) {
-      if (!_claimLink('join|$joinCode')) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final auth = ref.read(authControllerProvider);
-        if (auth.status == AuthStatus.authenticated) {
-          ref.read(routerProvider).go('/join/$joinCode');
-        } else {
-          // Sin sesion: guardamos el codigo y pasamos por login. Cuando la
-          // sesion se complete (ver _checkPendingJoin), abrimos la invitacion.
-          ref
-              .read(leagueControllerProvider.notifier)
-              .setPendingJoinCode(joinCode);
-          ref.read(routerProvider).go('/login');
+    final action = const DeepLinkParser().parse(uri);
+    if (action == null) return;
+
+    switch (action.kind) {
+      case DeepLinkKind.join:
+        final joinCode = action.joinCode;
+        if (joinCode == null) return;
+        if (!_claimLink('join|$joinCode')) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final auth = ref.read(authControllerProvider);
+          if (auth.status == AuthStatus.authenticated) {
+            ref.read(routerProvider).go('/join/$joinCode');
+          } else {
+            // Sin sesion: guardamos el codigo y pasamos por login. Cuando la
+            // sesion se complete (ver _checkPendingJoin), abrimos la invitacion.
+            ref
+                .read(leagueControllerProvider.notifier)
+                .setPendingJoinCode(joinCode);
+            ref.read(routerProvider).go('/login');
+          }
+        });
+        return;
+
+      case DeepLinkKind.reset:
+        final email = action.email;
+        final code = action.recoveryCode;
+        if (email == null ||
+            code == null ||
+            code.length != recoveryOtpLength) {
+          return;
         }
-      });
-      return;
+        if (!_claimLink('$email|$code')) return;
+
+        // Marca la sesion como "en recuperacion" ANTES de navegar: el guard del
+        // router solo deja entrar a /recover si isRecovering ya es true.
+        ref.read(authControllerProvider.notifier).setRecovering(true);
+        ref.read(recoveryControllerProvider.notifier).startFromLink(
+              email: email,
+              code: code,
+            );
+
+        // En arranque en frio el GoRouter aun no esta montado cuando initState
+        // resuelve el enlace inicial; navegar en el siguiente frame evita que
+        // initialLocation('/onboarding') adelante a la navegacion.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref.read(routerProvider).go('/recover');
+        });
+        return;
+
+      case DeepLinkKind.loginCallback:
+        // Callback OAuth (PKCE): lo consume supabase_flutter, no es accion.
+        return;
     }
-
-    final query = uri.queryParameters;
-    final isReset = uri.host == 'reset' ||
-        uri.path.contains('reset') ||
-        query.containsKey('code');
-    if (!isReset) return;
-
-    final rawEmail = query['email'];
-    final code = (query['code'] ?? query['token'] ?? '')
-        .replaceAll(RegExp(r'[^0-9]'), '');
-    if (rawEmail == null || code.length != recoveryOtpLength) {
-      return;
-    }
-
-    // El '+' del correo se decodifica como espacio al parsear el query string.
-    final email = rawEmail.replaceAll(' ', '+');
-    if (!_claimLink('$email|$code')) return;
-
-    // Marca la sesion como "en recuperacion" ANTES de navegar: el guard del
-    // router solo deja entrar a /recover si isRecovering ya es true.
-    ref.read(authControllerProvider.notifier).setRecovering(true);
-    ref.read(recoveryControllerProvider.notifier).startFromLink(
-          email: email,
-          code: code,
-        );
-
-    // En arranque en frio el GoRouter aun no esta montado cuando initState
-    // resuelve el enlace inicial; navegar en el siguiente frame evita que
-    // initialLocation('/onboarding') adelante a la navegacion.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.read(routerProvider).go('/recover');
-    });
-  }
-
-  /// Extrae el codigo de invitacion si el URI es de tipo join
-  /// (com.rivalfit.rivalfit://join/CODE o https://fit-api.iscx.site/join/CODE).
-  String? _joinCodeFor(Uri uri) {
-    final segments = uri.pathSegments;
-    if (uri.host == 'join' && segments.isNotEmpty) {
-      return _normalizeJoinCode(segments.first);
-    }
-    if (uri.host == 'fit-api.iscx.site' &&
-        segments.isNotEmpty &&
-        segments.first == 'join' &&
-        segments.length > 1) {
-      return _normalizeJoinCode(segments[1]);
-    }
-    return null;
-  }
-
-  static final RegExp _joinCodeRegex = RegExp(r'^[A-Z2-9]{6}$');
-
-  String? _normalizeJoinCode(String raw) {
-    final code = raw.trim().toUpperCase();
-    return _joinCodeRegex.hasMatch(code) ? code : null;
   }
 
   /// Marca el enlace como atendido. Devuelve false si ya se proceso una firma

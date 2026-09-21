@@ -3,15 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/core/deeplinks/deep_link_parser.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
-/// Cierra el enlace de invitacion usando el custom scheme de la app
-/// (com.rivalfit.rivalfit://join/CODE). En Android abre la app directamente si
-/// esta instalada, sin depender de App Links verificados.
-String customInviteLink(String code) =>
-    'com.rivalfit.rivalfit://join/${code.toUpperCase()}';
+/// La invitacion se comparte SIEMPRE con el enlace https verificado por App
+/// Links (https://fit-api.iscx.site/join/CODE). El custom scheme
+/// (com.rivalfit.rivalfit://join/CODE) queda solo como compatibilidad interna
+/// y nunca llega a un amigo.
 
 Future<void> showInviteSheet(BuildContext context, League league) {
   return showModalBottomSheet<void>(
@@ -37,7 +37,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
   bool _searching = false;
   String? _searchError;
 
-  String get _link => customInviteLink(widget.league.code);
+  String get _link => joinInviteLink(widget.league.code);
 
   @override
   void dispose() {
@@ -49,13 +49,19 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
     await Clipboard.setData(ClipboardData(text: _link));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Enlace de invitacin copiado')),
+      const SnackBar(content: Text('Enlace copiado')),
     );
   }
 
   Future<void> _share() async {
-    final message = 'Únete a mi liga "${widget.league.name}" en RivalFit.'
-        '\nCódigo: ${widget.league.code}\n$_link';
+    final message = 'Te reto a mi Liga de RIVALFIT 🟢\n'
+        '\n'
+        'Únete y compitamos esta semana.\n'
+        '\n'
+        '${widget.league.name}\n'
+        '${widget.league.memberCount}/${widget.league.maxMembers} competidores\n'
+        '\n'
+        '$_link';
     await SharePlus.instance.share(ShareParams(text: message));
   }
 
