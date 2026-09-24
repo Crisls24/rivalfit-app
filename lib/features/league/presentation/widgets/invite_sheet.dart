@@ -13,6 +13,24 @@ import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 /// (com.rivalfit.rivalfit://join/CODE) queda solo como compatibilidad interna
 /// y nunca llega a un amigo.
 
+/// Mensaje profesional para compartir por WhatsApp/SMS/redes: corto, retador y
+/// sin emojis. El enlace va solo en la ultima linea para que WhatsApp arme el
+/// preview con los og: tags de la landing (/join/:code).
+String inviteMessage({
+  required String leagueName,
+  required int memberCount,
+  required int maxMembers,
+  required String link,
+}) {
+  return 'Te reto a mi Liga de RIVALFIT\n'
+      '$leagueName · $memberCount/$maxMembers competidores\n'
+      '\n'
+      'Esta semana se reinicia el ranking.\n'
+      '¿Vas a dejar que otro gane la Liga?\n'
+      '\n'
+      '$link';
+}
+
 Future<void> showInviteSheet(BuildContext context, League league) {
   return showModalBottomSheet<void>(
     context: context,
@@ -54,14 +72,12 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
   }
 
   Future<void> _share() async {
-    final message = 'Te reto a mi Liga de RIVALFIT 🟢\n'
-        '\n'
-        'Únete y compitamos esta semana.\n'
-        '\n'
-        '${widget.league.name}\n'
-        '${widget.league.memberCount}/${widget.league.maxMembers} competidores\n'
-        '\n'
-        '$_link';
+    final message = inviteMessage(
+      leagueName: widget.league.name,
+      memberCount: widget.league.memberCount,
+      maxMembers: widget.league.maxMembers,
+      link: _link,
+    );
     await SharePlus.instance.share(ShareParams(text: message));
   }
 
