@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Acceso a las tablas de ligas de Supabase (PRD RF-7). Todo funciona bajo la
-/// RLS del backend: los miembros solo ven su propia liga y los usuarios pueden
-/// buscar perfiles por alias para invitar.
+/// Acceso a las tablas de ligas y al bucket 'avatars' de Supabase (PRD RF-7).
+/// Todo funciona bajo la RLS del backend: los miembros solo ven su propia liga
+/// y los usuarios pueden buscar perfiles por alias para invitar. Las fotos de
+/// liga se suben al mismo bucket de avatares (ya configurado) bajo
+/// `public/<uid>/league_*`, reutilizando su policy de insert autenticado.
 class LeagueSupabaseDataSource {
   /// Si el servidor no responde en ese plazo, la llamada aborta con un error
   /// amigable en lugar de dejar el spinner girando para siempre.
@@ -69,11 +73,11 @@ class LeagueSupabaseDataSource {
   }
 
   /// Crea una liga. El codigo de invitacion y el owner los resuelve el backend
-  /// (triggers set_league_code / add_owner_as_member).
+  /// (triggers set_league_code / add_owner_as_member). La foto de grupo se
+  /// sube despues via [uploadLeaguePhoto] (necesita el id de la liga).
   Future<Map<String, dynamic>> createLeague(
     String name, {
     String emoji = '🏆',
-    String iconText = 'podium',
     String? socialBet,
   }) async {
     final row = await _client
@@ -81,13 +85,41 @@ class LeagueSupabaseDataSource {
         .insert({
           'name': name,
           'emoji': emoji,
-          'icon_text': iconText,
+          'icon_text': 'podium',
           'social_bet': socialBet,
         })
         .select()
         .single()
         .timeout(_requestTimeout);
     return row;
+  }
+
+  /// Sube la foto de grupo al bucket 'avatars' (ruta propia: `public/<uid>/`
+  /// `league_<liga>_<ts>.<ext>`) y guarda la URL publica en la fila de la liga.
+  /// Mismo patron que uploadAvatar del perfil.
+  Future<void> uploadLeaguePhoto({
+    required String leagueId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    final uid = _userId;
+    if (uid == null) {
+      throw const AuthException('No autenticado');
+    }
+    final ext = fileName.contains('.')
+        ? fileName.split('.').last.toLowerCase()
+        : 'jpg';
+    final path =
+        'public/$uid/league_${leagueId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _client.storage
+        .from('avatars')
+        .uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: false));
+    final url = _client.storage.from('avatars').getPublicUrl(path);
+    await _client
+        .from('leagues')
+        .update({'photo_url': url})
+        .eq('id', leagueId)
+        .timeout(_requestTimeout);
   }
 
   /// Une al usuario autenticado a la liga por su codigo. El user_id lo resuelve

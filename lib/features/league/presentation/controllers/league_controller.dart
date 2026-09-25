@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/domain/repositories/league_repository.dart';
@@ -104,12 +106,14 @@ class LeagueController extends StateNotifier<LeagueState> {
 
   void retry() => load();
 
-  /// Crea la liga y recarga el estado. Devuelve un mensaje de error o null.
+  /// Crea la liga y recarga el estado. Si se eligio foto, la sube despues de
+  /// insertar (necesita el id de la liga). Devuelve un mensaje de error o null.
   Future<String?> createLeague(
     String name, {
     String emoji = '🏆',
-    String iconText = 'podium',
     String? socialBet,
+    Uint8List? photoBytes,
+    String? photoFileName,
   }) async {
     if (name.trim().isEmpty) {
       return 'Escribe un nombre para tu liga';
@@ -119,7 +123,6 @@ class LeagueController extends StateNotifier<LeagueState> {
     final result = await _repo.createLeague(
       name.trim(),
       emoji: emoji,
-      iconText: iconText,
       socialBet: socialBet,
     );
     if (result.error != null) {
@@ -128,6 +131,22 @@ class LeagueController extends StateNotifier<LeagueState> {
         errorMessage: result.error!.message,
       );
       return result.error!.message;
+    }
+    final league = result.league;
+    if (league != null &&
+        photoBytes != null &&
+        photoFileName != null) {
+      // La foto es opcional: si falla la subida, la liga queda igual creada
+      // con su emblema por defecto.
+      final uploadError = await _repo.uploadLeaguePhoto(
+        leagueId: league.id,
+        bytes: photoBytes,
+        fileName: photoFileName,
+      );
+      if (uploadError != null) {
+        await _refresh();
+        return null;
+      }
     }
     await _refresh();
     return null;

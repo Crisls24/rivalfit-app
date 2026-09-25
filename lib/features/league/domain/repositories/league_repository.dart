@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:rivalfit/core/error/failures.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 
@@ -22,8 +24,15 @@ abstract class LeagueRepository {
   Future<({League? league, Failure? error})> createLeague(
     String name, {
     String emoji = '🏆',
-    String iconText = 'podium',
     String? socialBet,
+  });
+
+  /// Sube la foto de grupo de una liga recien creada al bucket (avatars) y
+  /// guarda la URL publica en la fila. Devuelve null si salio bien.
+  Future<Failure?> uploadLeaguePhoto({
+    required String leagueId,
+    required Uint8List bytes,
+    required String fileName,
   });
 
   /// Une al usuario autenticado por codigo de invitacion.

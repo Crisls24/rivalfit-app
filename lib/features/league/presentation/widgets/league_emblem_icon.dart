@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
@@ -19,6 +21,106 @@ class LeagueEmblem extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(painter: _LeagueEmblemPainter(size)),
+    );
+  }
+}
+
+/// Identidad visual unica de una liga: la foto de grupo si existe; si no, el
+/// [LeagueEmblem] (podio de la marca). Reemplaza por completo los emojis e
+/// iconos como identidad de liga. Se usa en el sheet de creacion (preview en
+/// vivo), el dialog de exito, la card, el invite sheet, el join y el ranking.
+class LeagueBadge extends StatelessWidget {
+  /// URL publica de la foto ya subida a storage.
+  final String? photoUrl;
+
+  /// Bytes de la foto recien elegida (preview local ANTES de subir).
+  final Uint8List? bytes;
+
+  final double size;
+
+  /// Radio de las esquinas de la caja cuadrada.
+  final double radius;
+
+  final Color? background;
+
+  final Color? borderColor;
+
+  const LeagueBadge({
+    super.key,
+    this.photoUrl,
+    this.bytes,
+    this.size = 48,
+    this.radius = 14,
+    this.background,
+    this.borderColor,
+  });
+
+  bool get _hasImage => (photoUrl?.isNotEmpty ?? false) || bytes != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = background ?? AppColors.volt.withValues(alpha: 0.14);
+    final border = borderColor ?? AppColors.volt.withValues(alpha: 0.28);
+    final borderRadius = BorderRadius.circular(radius);
+
+    if (!_hasImage) {
+      return _frame(
+        borderRadius,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: borderRadius,
+          border: Border.all(color: border, width: 1.2),
+        ),
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(size * 0.14),
+            child: LeagueEmblem(size: size * 0.72),
+          ),
+        ),
+      );
+    }
+
+    final image = bytes != null
+        ? Image.memory(bytes!, fit: BoxFit.cover)
+        : Image.network(
+            photoUrl!,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _frame(
+              borderRadius,
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: borderRadius,
+                border: Border.all(color: border, width: 1.2),
+              ),
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(size * 0.14),
+                  child: LeagueEmblem(size: size * 0.72),
+                ),
+              ),
+            ),
+          );
+
+    return _frame(
+      borderRadius,
+      decoration: BoxDecoration(color: bg, borderRadius: borderRadius),
+      clip: true,
+      child: image,
+    );
+  }
+
+  Widget _frame(
+    BorderRadius borderRadius, {
+    required BoxDecoration decoration,
+    Widget? child,
+    bool clip = false,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: decoration,
+      clipBehavior: clip ? Clip.antiAlias : Clip.none,
+      child: child,
     );
   }
 }

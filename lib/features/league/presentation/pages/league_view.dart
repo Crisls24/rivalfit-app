@@ -112,13 +112,14 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
     await showCreateLeagueSheet(
       context,
       initialName: ref.watch(authControllerProvider).user?.displayName ?? '',
-      onCreate: (name, emoji, iconKey, socialBet) => ref
+      onCreate: (name, emoji, socialBet, photoBytes, photoFileName) => ref
           .read(leagueControllerProvider.notifier)
           .createLeague(
             name,
             emoji: emoji,
-            iconText: iconKey,
             socialBet: socialBet,
+            photoBytes: photoBytes,
+            photoFileName: photoFileName,
           ),
     );
     if (!mounted) return;

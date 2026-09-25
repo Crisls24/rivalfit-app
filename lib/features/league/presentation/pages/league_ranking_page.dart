@@ -5,7 +5,7 @@ import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
 /// Clasificacion completa de la liga (hasta 10 miembros). Se abre desde la tab
@@ -104,23 +104,12 @@ class _RankingList extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.volt.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: AppColors.volt.withValues(alpha: 0.25),
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    leagueIconData(league.iconText),
-                    size: 20,
-                    color: AppColors.volt,
-                  ),
-                ),
+              LeagueBadge(
+                photoUrl: league.photoUrl,
+                size: 42,
+                background: AppColors.volt.withValues(alpha: 0.18),
+                borderColor: AppColors.volt.withValues(alpha: 0.25),
+                radius: 13,
               ),
               const SizedBox(width: 12),
               Expanded(

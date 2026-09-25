@@ -1,48 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/core/deeplinks/deep_link_parser.dart';
+import 'package:rivalfit/features/league/domain/invite_message.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 import 'package:share_plus/share_plus.dart';
-
-const List<String> leagueIconKeys = <String>[
-  'podium',
-  'bolt',
-  'shield',
-  'martial',
-  'trophy',
-  'rank',
-];
-
-IconData leagueIconData(String? key) {
-  switch ((key ?? 'podium').trim().toLowerCase()) {
-    case 'bolt':
-      return Icons.bolt_rounded;
-    case 'shield':
-      return Icons.shield_rounded;
-    case 'martial':
-      return Icons.sports_martial_arts_rounded;
-    case 'trophy':
-      return Icons.emoji_events_rounded;
-    case 'rank':
-      return Icons.military_tech_rounded;
-    case 'podium':
-    default:
-      return Icons.emoji_events_rounded;
-  }
-}
 
 Future<void> showCreateLeagueSheet(
   BuildContext context, {
   String initialName = '',
   String initialEmoji = '🏆',
-  String initialIconKey = 'podium',
   String? initialSocialBet,
   required Future<String?> Function(
     String name,
     String emoji,
-    String iconKey,
     String? socialBet,
+    Uint8List? photoBytes,
+    String? photoFileName,
   )
   onCreate,
 }) {
@@ -53,7 +29,6 @@ Future<void> showCreateLeagueSheet(
     builder: (sheetContext) => CreateLeagueSheet(
       initialName: initialName,
       initialEmoji: initialEmoji,
-      initialIconKey: initialIconKey,
       initialSocialBet: initialSocialBet,
       onCreate: onCreate,
     ),
@@ -86,13 +61,13 @@ Future<void> showJoinLeagueDialog(
 class CreateLeagueSheet extends StatefulWidget {
   final String initialName;
   final String initialEmoji;
-  final String initialIconKey;
   final String? initialSocialBet;
   final Future<String?> Function(
     String name,
     String emoji,
-    String iconKey,
     String? socialBet,
+    Uint8List? photoBytes,
+    String? photoFileName,
   )
   onCreate;
 
@@ -100,7 +75,6 @@ class CreateLeagueSheet extends StatefulWidget {
     super.key,
     this.initialName = '',
     this.initialEmoji = '🏆',
-    this.initialIconKey = 'podium',
     this.initialSocialBet,
     required this.onCreate,
   });
@@ -112,7 +86,8 @@ class CreateLeagueSheet extends StatefulWidget {
 class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   late final TextEditingController _controller;
   late final TextEditingController _betController;
-  late String _iconKey;
+  Uint8List? _photoBytes;
+  String? _photoFileName;
   bool _creating = false;
   String? _error;
 
@@ -121,7 +96,6 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
     super.initState();
     _controller = TextEditingController(text: widget.initialName);
     _betController = TextEditingController(text: widget.initialSocialBet ?? '');
-    _iconKey = widget.initialIconKey;
   }
 
   @override
@@ -129,6 +103,22 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
     _controller.dispose();
     _betController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _photoBytes = bytes;
+      _photoFileName = file.name;
+    });
   }
 
   Future<void> _submit() async {
@@ -146,8 +136,9 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
     final error = await widget.onCreate(
       name,
       widget.initialEmoji,
-      _iconKey,
       socialBet.isEmpty ? null : socialBet,
+      _photoBytes,
+      _photoFileName,
     );
     if (!mounted) return;
     if (error == null) {
@@ -195,23 +186,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: AppColors.volt.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: AppColors.volt.withValues(alpha: 0.44),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Icon(
-                      leagueIconData(_iconKey),
-                      size: 26,
-                      color: AppColors.volt,
-                    ),
-                  ),
+                  LeagueBadge(bytes: _photoBytes, size: 56, background: AppColors.volt.withValues(alpha: 0.14), borderColor: AppColors.volt.withValues(alpha: 0.44)),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -254,19 +229,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: AppColors.volt.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        leagueIconData(_iconKey),
-                        color: AppColors.volt,
-                        size: 22,
-                      ),
-                    ),
+                    LeagueBadge(bytes: _photoBytes, size: 46),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -347,7 +310,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Identidad',
+                'Foto de la liga',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 12,
@@ -356,41 +319,74 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  for (final key in leagueIconKeys)
-                    GestureDetector(
-                      onTap: () => setState(() => _iconKey = key),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: _iconKey == key
-                              ? AppColors.volt.withValues(alpha: 0.22)
-                              : AppColors.glowNeutral,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: _iconKey == key
-                                ? AppColors.volt
-                                : AppColors.glassBorder,
-                            width: _iconKey == key ? 1.5 : 1,
-                          ),
-                        ),
-                        child: Icon(
-                          leagueIconData(key),
-                          color: _iconKey == key
+              Material(
+                color: AppColors.glowNeutral,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: _creating ? null : _pickPhoto,
+                  borderRadius: BorderRadius.circular(14),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _photoBytes == null
+                              ? Icons.add_a_photo_outlined
+                              : Icons.change_history,
+                          size: 18,
+                          color: _photoBytes == null
                               ? AppColors.volt
                               : Colors.white,
-                          size: 22,
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _photoBytes == null
+                                ? 'Elegir foto de tu grupo'
+                                : 'Foto elegida · presiona para cambiar',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (_photoBytes != null)
+                          InkWell(
+                            onTap: _creating
+                                ? null
+                                : () => setState(() {
+                                      _photoBytes = null;
+                                      _photoFileName = null;
+                                    }),
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close,
+                                size: 16,
+                                color: AppColors.textGray,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 10),
+              Text(
+                'Sin foto, tu liga usa el emblema de RivalFit.',
+                style: TextStyle(
+                  color: AppColors.textPlaceholder,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
               const Text(
                 'Apuesta opcional',
                 style: TextStyle(
@@ -729,18 +725,10 @@ class _LeagueCreatedDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.volt.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    leagueIconData(league.iconText),
-                    color: AppColors.volt,
-                    size: 22,
-                  ),
+                LeagueBadge(
+                  photoUrl: league.photoUrl,
+                  size: 42,
+                  background: AppColors.volt.withValues(alpha: 0.18),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -828,12 +816,12 @@ class _LeagueCreatedDialog extends StatelessWidget {
                   child: _SimpleActionButton(
                     label: 'Compartir',
                     onTap: () async {
-                      final text =
-                          'Te reto a mi Liga de RIVALFIT\n'
-                          '${league.name} · 1/10 competidores\n\n'
-                          'La semana empieza ahora.\n'
-                          '¿Vas a dejar que otro gane la Liga?\n\n'
-                          '$link';
+                      final text = leagueInviteMessage(
+                        leagueName: league.name,
+                        memberCount: 1,
+                        maxMembers: league.maxMembers,
+                        link: link,
+                      );
                       await SharePlus.instance.share(ShareParams(text: text));
                     },
                     filled: true,

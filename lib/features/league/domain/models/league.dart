@@ -5,6 +5,7 @@ class League {
   final String name;
   final String emoji;
   final String iconText;
+  final String? photoUrl;
   final String? socialBet;
   final String code;
   final String ownerId;
@@ -21,6 +22,7 @@ class League {
     required this.createdAt,
     this.emoji = '🏆',
     this.iconText = 'podium',
+    this.photoUrl,
     this.socialBet,
     this.memberCount = 0,
   });

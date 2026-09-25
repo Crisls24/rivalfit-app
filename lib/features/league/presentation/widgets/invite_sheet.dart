@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/core/deeplinks/deep_link_parser.dart';
+import 'package:rivalfit/features/league/domain/invite_message.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -13,24 +14,6 @@ import 'package:share_plus/share_plus.dart';
 /// Links (https://fit-api.iscx.site/join/CODE). El custom scheme
 /// (com.rivalfit.rivalfit://join/CODE) queda solo como compatibilidad interna
 /// y nunca llega a un amigo.
-
-/// Mensaje profesional para compartir por WhatsApp/SMS/redes: corto, retador y
-/// sin emojis. El enlace va solo en la ultima linea para que WhatsApp arme el
-/// preview con los og: tags de la landing (/join/:code).
-String inviteMessage({
-  required String leagueName,
-  required int memberCount,
-  required int maxMembers,
-  required String link,
-}) {
-  return 'Te reto a mi Liga de RIVALFIT\n'
-      '$leagueName · $memberCount/$maxMembers competidores\n'
-      '\n'
-      'Esta semana se reinicia el ranking.\n'
-      '¿Vas a dejar que otro gane la Liga?\n'
-      '\n'
-      '$link';
-}
 
 Future<void> showInviteSheet(BuildContext context, League league) {
   return showModalBottomSheet<void>(
@@ -72,7 +55,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
   }
 
   Future<void> _share() async {
-    final message = inviteMessage(
+    final message = leagueInviteMessage(
       leagueName: widget.league.name,
       memberCount: widget.league.memberCount,
       maxMembers: widget.league.maxMembers,
@@ -154,20 +137,11 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
                   const SizedBox(height: 18),
                   Row(
                     children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: AppColors.volt.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            leagueIconData(widget.league.iconText),
-                            size: 20,
-                            color: AppColors.carbon,
-                          ),
-                        ),
+                      LeagueBadge(
+                        photoUrl: widget.league.photoUrl,
+                        size: 38,
+                        background: AppColors.volt.withValues(alpha: 0.18),
+                        radius: 12,
                       ),
                       const SizedBox(width: 10),
                       Expanded(

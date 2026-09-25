@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 
 /// Pagina que abre el enlace de invitacion (com.rivalfit.rivalfit://join/CODE
 /// o https://fit-api.iscx.site/join/CODE). Muestra "TE HAN INVITADO" con el
@@ -142,24 +142,12 @@ class _InviteView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 76,
-              height: 76,
-              decoration: BoxDecoration(
-                color: AppColors.volt.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppColors.volt.withValues(alpha: 0.6),
-                  width: 1.5,
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  leagueIconData(league.iconText),
-                  size: 30,
-                  color: AppColors.carbon,
-                ),
-              ),
+            LeagueBadge(
+              photoUrl: league.photoUrl,
+              size: 76,
+              background: AppColors.volt.withValues(alpha: 0.22),
+              borderColor: AppColors.volt.withValues(alpha: 0.6),
+              radius: 24,
             ),
             const SizedBox(height: 22),
             const Text(

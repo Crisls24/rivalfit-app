@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
 /// Card principal de la liga ya creada: cabecera con icono, codigo y apuesta,
@@ -232,21 +232,12 @@ class _LeagueHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: AppColors.volt.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.volt.withValues(alpha: 0.28)),
-          ),
-          child: Center(
-            child: Icon(
-              leagueIconData(league.iconText),
-              size: 22,
-              color: AppColors.volt,
-            ),
-          ),
+        LeagueBadge(
+          photoUrl: league.photoUrl,
+          size: 50,
+          background: AppColors.volt.withValues(alpha: 0.14),
+          borderColor: AppColors.volt.withValues(alpha: 0.28),
+          radius: 16,
         ),
         const SizedBox(width: 14),
         Expanded(

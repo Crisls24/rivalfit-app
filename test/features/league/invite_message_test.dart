@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rivalfit/features/league/presentation/widgets/invite_sheet.dart';
+import 'package:rivalfit/features/league/domain/invite_message.dart';
 
 void main() {
   const link = 'https://fit-api.iscx.site/join/9KGHSB';
 
-  test('inviteMessage: formato profesional, retador y sin emojis', () {
-    final msg = inviteMessage(
+  test('leagueInviteMessage: formato profesional, retador y sin emojis', () {
+    final msg = leagueInviteMessage(
       leagueName: 'LOS CABRONES',
       memberCount: 2,
       maxMembers: 10,
@@ -23,9 +23,9 @@ void main() {
     ));
   });
 
-  test('inviteMessage: el enlace queda solo en la ultima linea '
+  test('leagueInviteMessage: el enlace queda solo en la ultima linea '
       '(para que WhatsApp extraiga el preview) y sin emojis', () {
-    final msg = inviteMessage(
+    final msg = leagueInviteMessage(
       leagueName: 'Liga A',
       memberCount: 1,
       maxMembers: 10,

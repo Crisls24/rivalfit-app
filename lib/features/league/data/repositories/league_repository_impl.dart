@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:rivalfit/core/error/failures.dart';
 import 'package:rivalfit/features/league/data/datasources/league_supabase_data_source.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
@@ -67,19 +69,31 @@ class LeagueRepositoryImpl implements LeagueRepository {
   Future<({League? league, Failure? error})> createLeague(
     String name, {
     String emoji = '🏆',
-    String iconText = 'podium',
     String? socialBet,
   }) async {
     try {
-      final raw = await dataSource.createLeague(
-        name,
-        emoji: emoji,
-        iconText: iconText,
-        socialBet: socialBet,
-      );
+      final raw = await dataSource.createLeague(name, emoji: emoji, socialBet: socialBet);
       return (league: _leagueFromMap(raw), error: null);
     } catch (e) {
       return (league: null, error: _friendly(e));
+    }
+  }
+
+  @override
+  Future<Failure?> uploadLeaguePhoto({
+    required String leagueId,
+    required Uint8List bytes,
+    required String fileName,
+  }) async {
+    try {
+      await dataSource.uploadLeaguePhoto(
+        leagueId: leagueId,
+        bytes: bytes,
+        fileName: fileName,
+      );
+      return null;
+    } catch (e) {
+      return _friendly(e);
     }
   }
 
@@ -174,6 +188,7 @@ League _leagueFromMap(Map<String, dynamic> row, {int? memberCount}) {
     name: row['name'] as String,
     emoji: (row['emoji'] as String?) ?? '🏆',
     iconText: (row['icon_text'] as String?) ?? 'podium',
+    photoUrl: row['photo_url'] as String?,
     socialBet: row['social_bet'] as String?,
     code: row['code'] as String,
     ownerId: row['owner_id'] as String,
