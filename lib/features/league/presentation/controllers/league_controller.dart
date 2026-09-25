@@ -105,13 +105,23 @@ class LeagueController extends StateNotifier<LeagueState> {
   void retry() => load();
 
   /// Crea la liga y recarga el estado. Devuelve un mensaje de error o null.
-  Future<String?> createLeague(String name, {String emoji = '🏆'}) async {
+  Future<String?> createLeague(
+    String name, {
+    String emoji = '🏆',
+    String iconText = 'podium',
+    String? socialBet,
+  }) async {
     if (name.trim().isEmpty) {
       return 'Escribe un nombre para tu liga';
     }
     if (state.status == LeagueStatus.loading) return null;
     state = state.copyWith(status: LeagueStatus.loading, errorMessage: null);
-    final result = await _repo.createLeague(name.trim(), emoji: emoji);
+    final result = await _repo.createLeague(
+      name.trim(),
+      emoji: emoji,
+      iconText: iconText,
+      socialBet: socialBet,
+    );
     if (result.error != null) {
       state = state.copyWith(
         status: LeagueStatus.error,

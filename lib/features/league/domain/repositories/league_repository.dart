@@ -10,16 +10,20 @@ abstract class LeagueRepository {
 
   /// Clasificacion de la liga ordenada por weekly_points desc.
   Future<({List<LeagueMember> items, Failure? error})> getRanking(
-      String leagueId);
+    String leagueId,
+  );
 
   /// Busca usuarios por alias o nombre para invitar.
   Future<({List<UserSearchResult> items, Failure? error})> searchByAlias(
-      String query);
+    String query,
+  );
 
   /// Crea una liga (el creador queda como miembro automaticamente).
   Future<({League? league, Failure? error})> createLeague(
     String name, {
     String emoji = '🏆',
+    String iconText = 'podium',
+    String? socialBet,
   });
 
   /// Une al usuario autenticado por codigo de invitacion.

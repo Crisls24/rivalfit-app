@@ -23,11 +23,13 @@ class MemberTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: isSelf
             ? AppColors.volt.withValues(alpha: 0.12)
-            : Colors.transparent,
+            : Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(16),
-        border: isSelf
-            ? Border.all(color: AppColors.volt.withValues(alpha: 0.55))
-            : null,
+        border: Border.all(
+          color: isSelf
+              ? AppColors.volt.withValues(alpha: 0.55)
+              : Colors.white.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
@@ -44,7 +46,7 @@ class MemberTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.carbon,
+                    color: Colors.white,
                     fontSize: 14,
                     fontWeight: isSelf ? FontWeight.w900 : FontWeight.w800,
                   ),
@@ -56,7 +58,7 @@ class MemberTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.grayMain.withValues(alpha: 0.85),
+                      color: AppColors.textGray,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -68,7 +70,7 @@ class MemberTile extends StatelessWidget {
           Text(
             '${member.weeklyPoints} pts',
             style: TextStyle(
-              color: isSelf ? AppColors.carbon : AppColors.grayMain,
+              color: isSelf ? AppColors.volt : Colors.white,
               fontSize: 12,
               fontWeight: isSelf ? FontWeight.w900 : FontWeight.w700,
             ),
@@ -92,15 +94,13 @@ class _PositionBadge extends StatelessWidget {
       height: 30,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: isPodium
-            ? AppColors.volt.withValues(alpha: 0.9)
-            : AppColors.panelSoft,
+        color: isPodium ? AppColors.volt : Colors.white.withValues(alpha: 0.08),
         shape: BoxShape.circle,
       ),
       child: Text(
         '$position',
         style: TextStyle(
-          color: isPodium ? AppColors.carbon : AppColors.grayMain,
+          color: isPodium ? AppColors.carbon : Colors.white,
           fontSize: 12.5,
           fontWeight: FontWeight.w900,
         ),
@@ -124,10 +124,10 @@ class _TileAvatar extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: AppColors.avatarBackground,
+        color: AppColors.backgroundDark,
         shape: BoxShape.circle,
         border: Border.all(
-          color: isSelf ? AppColors.volt : AppColors.subtleBorder,
+          color: isSelf ? AppColors.volt : Colors.white.withValues(alpha: 0.14),
           width: isSelf ? 2 : 1,
         ),
       ),
@@ -138,7 +138,7 @@ class _TileAvatar extends StatelessWidget {
                 child: Text(
                   initialsFor(name),
                   style: const TextStyle(
-                    color: AppColors.carbon,
+                    color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.w900,
                   ),

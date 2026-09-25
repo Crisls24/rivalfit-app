@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
-/// Card principal de la liga ya creada: cabecera con codigo, top 5 de la
-/// clasificacion, invitacion (o aviso de liga completa) y preview de amigos.
+/// Card principal de la liga ya creada: cabecera con icono, codigo y apuesta,
+/// top 5 de la clasificacion, invitacion y preview de amigos.
 class LeagueCard extends StatelessWidget {
   final League league;
   final List<LeagueMember> ranking;
@@ -28,26 +29,72 @@ class LeagueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasSocialBet = (league.socialBet ?? '').trim().isNotEmpty;
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppColors.subtleBorder),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF171717), Color(0xFF0D0D0D)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.glassBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: AppColors.volt.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _LeagueHeader(league: league, isFull: _isFull, onLeave: onLeave),
+          _LeagueHeader(
+            league: league,
+            isFull: _isFull,
+            onLeave: onLeave,
+            hasSocialBet: hasSocialBet,
+          ),
+          if (hasSocialBet) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppColors.volt.withValues(alpha: 0.12),
+                border: Border.all(
+                  color: AppColors.volt.withValues(alpha: 0.25),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.whatshot_rounded,
+                    size: 14,
+                    color: AppColors.volt,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      league.socialBet!,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
-          Divider(color: AppColors.subtleBorder.withValues(alpha: 0.8)),
+          Divider(color: Colors.white.withValues(alpha: 0.08)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -55,7 +102,7 @@ class LeagueCard extends StatelessWidget {
               const Text(
                 'Clasificación',
                 style: TextStyle(
-                  color: AppColors.carbon,
+                  color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.2,
@@ -69,7 +116,7 @@ class LeagueCard extends StatelessWidget {
                   child: Text(
                     'VER CLASIFICACIÓN  →',
                     style: TextStyle(
-                      color: AppColors.carbon,
+                      color: AppColors.volt,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.3,
@@ -86,7 +133,7 @@ class LeagueCard extends StatelessWidget {
               child: Text(
                 'Aún no hay repeticiones esta semana. ¡Invita a tus amigos!',
                 style: TextStyle(
-                  color: AppColors.grayMain.withValues(alpha: 0.85),
+                  color: AppColors.textGray,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
                 ),
@@ -105,12 +152,9 @@ class LeagueCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 12),
-          if (_isFull)
-            const _FullBadge()
-          else
-            _InviteButton(onTap: onInvite),
+          if (_isFull) const _FullBadge() else _InviteButton(onTap: onInvite),
           const SizedBox(height: 18),
-          Divider(color: AppColors.subtleBorder.withValues(alpha: 0.8)),
+          Divider(color: Colors.white.withValues(alpha: 0.08)),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -118,7 +162,7 @@ class LeagueCard extends StatelessWidget {
               const Text(
                 'AMIGOS',
                 style: TextStyle(
-                  color: AppColors.carbon,
+                  color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.2,
@@ -132,7 +176,7 @@ class LeagueCard extends StatelessWidget {
                   child: Text(
                     'VER TODOS  →',
                     style: TextStyle(
-                      color: AppColors.carbon,
+                      color: AppColors.volt,
                       fontSize: 11.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.3,
@@ -143,14 +187,20 @@ class LeagueCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _FriendsPreview(members: ranking.take(3).toList(), onInvite: onInvite),
+          _FriendsPreview(
+            members: ranking.take(3).toList(),
+            onInvite: onInvite,
+          ),
           const SizedBox(height: 10),
           Center(
             child: TextButton(
               onPressed: onLeave,
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.danger.withValues(alpha: 0.8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                foregroundColor: AppColors.textGray,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 textStyle: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -169,11 +219,13 @@ class _LeagueHeader extends StatelessWidget {
   final League league;
   final bool isFull;
   final VoidCallback onLeave;
+  final bool hasSocialBet;
 
   const _LeagueHeader({
     required this.league,
     required this.isFull,
     required this.onLeave,
+    required this.hasSocialBet,
   });
 
   @override
@@ -181,16 +233,18 @@ class _LeagueHeader extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 46,
-          height: 46,
+          width: 50,
+          height: 50,
           decoration: BoxDecoration(
-            color: AppColors.volt.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(14),
+            color: AppColors.volt.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.volt.withValues(alpha: 0.28)),
           ),
           child: Center(
-            child: Text(
-              league.emoji,
-              style: const TextStyle(fontSize: 24),
+            child: Icon(
+              leagueIconData(league.iconText),
+              size: 22,
+              color: AppColors.volt,
             ),
           ),
         ),
@@ -204,12 +258,12 @@ class _LeagueHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: AppColors.carbon,
+                  color: Colors.white,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               _CodeChip(code: league.code),
             ],
           ),
@@ -218,7 +272,7 @@ class _LeagueHeader extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
             decoration: BoxDecoration(
-              color: AppColors.volt.withValues(alpha: 0.85),
+              color: AppColors.volt.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Text(
@@ -230,6 +284,24 @@ class _LeagueHeader extends StatelessWidget {
                 letterSpacing: 0.4,
               ),
             ),
+          )
+        else if (!hasSocialBet)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            ),
+            child: const Text(
+              'SEMANAL',
+              style: TextStyle(
+                color: AppColors.textGray,
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.4,
+              ),
+            ),
           ),
         const SizedBox(width: 6),
         IconButton(
@@ -238,7 +310,7 @@ class _LeagueHeader extends StatelessWidget {
           icon: const Icon(
             Icons.logout_rounded,
             size: 20,
-            color: AppColors.grayMain,
+            color: AppColors.textGray,
           ),
         ),
       ],
@@ -257,16 +329,16 @@ class _CodeChip extends StatelessWidget {
       onTap: () async {
         await Clipboard.setData(ClipboardData(text: code));
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Código $code copiado')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Código $code copiado')));
       },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.panelSoft,
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -274,18 +346,14 @@ class _CodeChip extends StatelessWidget {
             Text(
               'Código $code',
               style: const TextStyle(
-                color: AppColors.grayMain,
+                color: AppColors.textGray,
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.2,
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(
-              Icons.copy_rounded,
-              size: 12,
-              color: AppColors.grayMain,
-            ),
+            const Icon(Icons.copy_rounded, size: 12, color: AppColors.textGray),
           ],
         ),
       ),
@@ -301,7 +369,7 @@ class _InviteButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.carbon,
+      color: AppColors.volt,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -311,13 +379,16 @@ class _InviteButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.person_add_alt_1_rounded,
-                  size: 18, color: Colors.white),
+              const Icon(
+                Icons.person_add_alt_1_rounded,
+                size: 18,
+                color: AppColors.carbon,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Invitar amigos',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.carbon,
                   fontSize: 14,
                   fontWeight: FontWeight.w900,
                 ),
@@ -338,22 +409,19 @@ class _FullBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.panelSoft,
+        color: Colors.white.withValues(alpha: 0.04),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.block_rounded,
-            size: 18,
-            color: AppColors.grayMain.withValues(alpha: 0.8),
-          ),
+          const Icon(Icons.block_rounded, size: 18, color: AppColors.textGray),
           const SizedBox(width: 8),
           Text(
             'Liga completa · espera la próxima semana',
             style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.9),
+              color: AppColors.textGray,
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
             ),
@@ -376,7 +444,7 @@ class _FriendsPreview extends StatelessWidget {
       return Text(
         'Invita a tus amigos para llenar la liga.',
         style: TextStyle(
-          color: AppColors.grayMain.withValues(alpha: 0.8),
+          color: AppColors.textGray,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -399,7 +467,7 @@ class _FriendsPreview extends StatelessWidget {
                 child: Icon(
                   Icons.add_circle_outline_rounded,
                   size: 20,
-                  color: AppColors.grayMain,
+                  color: AppColors.textGray,
                 ),
               ),
             ),
@@ -420,9 +488,9 @@ class _FriendPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.avatarBackground,
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.subtleBorder),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -431,7 +499,7 @@ class _FriendPill extends StatelessWidget {
             width: 22,
             height: 22,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.backgroundDark,
               shape: BoxShape.circle,
             ),
             child: ClipOval(
@@ -441,7 +509,7 @@ class _FriendPill extends StatelessWidget {
                       child: Text(
                         initialsFor(member.displayName)[0],
                         style: const TextStyle(
-                          color: AppColors.carbon,
+                          color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
                         ),
@@ -453,7 +521,7 @@ class _FriendPill extends StatelessWidget {
           Text(
             '@${member.alias ?? member.displayName}',
             style: const TextStyle(
-              color: AppColors.carbon,
+              color: Colors.white,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),

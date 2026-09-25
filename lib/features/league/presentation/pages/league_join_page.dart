@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 
 /// Pagina que abre el enlace de invitacion (com.rivalfit.rivalfit://join/CODE
 /// o https://fit-api.iscx.site/join/CODE). Muestra "TE HAN INVITADO" con el
@@ -41,23 +42,23 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
     }
     setState(() {
       _league = found.league;
-      _alreadyMember = myLeague.league != null &&
-          myLeague.league!.id == found.league?.id;
+      _alreadyMember =
+          myLeague.league != null && myLeague.league!.id == found.league?.id;
     });
   }
 
   Future<void> _join() async {
     if (_joining) return;
     setState(() => _joining = true);
-    final error =
-        await ref.read(leagueControllerProvider.notifier).join(widget.code);
+    final error = await ref
+        .read(leagueControllerProvider.notifier)
+        .join(widget.code);
     ref.read(leagueControllerProvider.notifier).consumePendingJoinCode();
     if (!mounted) return;
     if (error != null) {
       setState(() => _joining = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
@@ -115,10 +116,7 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
     return Scaffold(
       backgroundColor: AppColors.iceBackground,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: body,
-        ),
+        child: Padding(padding: const EdgeInsets.all(24), child: body),
       ),
     );
   }
@@ -156,9 +154,10 @@ class _InviteView extends StatelessWidget {
                 ),
               ),
               child: Center(
-                child: Text(
-                  league.emoji,
-                  style: const TextStyle(fontSize: 38),
+                child: Icon(
+                  leagueIconData(league.iconText),
+                  size: 30,
+                  color: AppColors.carbon,
                 ),
               ),
             ),
@@ -313,7 +312,10 @@ class _ResultView extends StatelessWidget {
               onTap: onAction,
               borderRadius: BorderRadius.circular(16),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 14,
+                ),
                 child: Text(
                   actionLabel,
                   style: const TextStyle(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_controller.dart';
@@ -10,6 +9,7 @@ import 'package:rivalfit/features/league/presentation/widgets/invite_sheet.dart'
 import 'package:rivalfit/features/league/presentation/widgets/league_card.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_state_views.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Tab "Liga": compite contra tus amigos y demuestra tu disciplina. Sin liga
 /// muestra la accion de crear/unirse; con liga muestra la clasificacion top 5,
@@ -31,8 +31,9 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
   void _init() {
     // Invitacion recibida por deep link sin sesion: tras autenticarse la app
     // consume el codigo pendiente y abre la pagina de invitacion.
-    final pending =
-        ref.read(leagueControllerProvider.notifier).consumePendingJoinCode();
+    final pending = ref
+        .read(leagueControllerProvider.notifier)
+        .consumePendingJoinCode();
     if (pending != null) {
       if (mounted) context.go('/join/$pending');
       return;
@@ -77,25 +78,28 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
             switch (state.status) {
               LeagueStatus.loading => const LeagueLoadingCard(),
               LeagueStatus.error => LeagueErrorCard(
-                  message: state.errorMessage ?? 'No pudimos cargar tu liga.',
-                  onRetry: () =>
-                      ref.read(leagueControllerProvider.notifier).retry(),
-                ),
-              _ => state.league == null
-                  ? LeagueEmptyState(
-                      onCreate: _openCreateDialog,
-                      onJoin: _openJoinDialog,
-                      onInviteFriends: _shareApp,
-                    )
-                  : LeagueCard(
-                      league: state.league!,
-                      ranking: state.ranking,
-                      currentUserId:
-                          ref.watch(authControllerProvider).user?.id,
-                      onInvite: () => showInviteSheet(context, state.league!),
-                      onOpenRanking: () => context.push('/league/ranking'),
-                      onLeave: _confirmLeave,
-                    ),
+                message: state.errorMessage ?? 'No pudimos cargar tu liga.',
+                onRetry: () =>
+                    ref.read(leagueControllerProvider.notifier).retry(),
+              ),
+              _ =>
+                state.league == null
+                    ? LeagueEmptyState(
+                        onCreate: _openCreateDialog,
+                        onJoin: _openJoinDialog,
+                        onInviteFriends: _shareApp,
+                      )
+                    : LeagueCard(
+                        league: state.league!,
+                        ranking: state.ranking,
+                        currentUserId: ref
+                            .watch(authControllerProvider)
+                            .user
+                            ?.id,
+                        onInvite: () => showInviteSheet(context, state.league!),
+                        onOpenRanking: () => context.push('/league/ranking'),
+                        onLeave: _confirmLeave,
+                      ),
             },
           ],
         ),
@@ -108,22 +112,28 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
     await showCreateLeagueSheet(
       context,
       initialName: ref.watch(authControllerProvider).user?.displayName ?? '',
-      onCreate: (name, emoji) => ref
+      onCreate: (name, emoji, iconKey, socialBet) => ref
           .read(leagueControllerProvider.notifier)
-          .createLeague(name, emoji: emoji),
+          .createLeague(
+            name,
+            emoji: emoji,
+            iconText: iconKey,
+            socialBet: socialBet,
+          ),
     );
     if (!mounted) return;
     final league = ref.read(leagueControllerProvider).league;
     if (!hadLeague && league != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Liga creada. ¡Invita a tus amigos!')),
+      await showLeagueCreatedDialog(
+        context,
+        league: league,
+        onInvite: () => showInviteSheet(context, league),
       );
     }
   }
 
   Future<void> _openJoinDialog() async {
-    final hadLeague =
-        ref.read(leagueControllerProvider).league != null;
+    final hadLeague = ref.read(leagueControllerProvider).league != null;
     await showJoinLeagueDialog(
       context,
       onSubmit: (code) =>
@@ -132,17 +142,24 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
     if (!mounted) return;
     final league = ref.read(leagueControllerProvider).league;
     if (!hadLeague && league != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('¡Bienvenido a ${league.name}!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('¡Bienvenido a ${league.name}!')));
     }
   }
 
   Future<void> _shareApp() async {
     // Sin liga aun no hay codigo que compartir: invita a la app mientras se
     // forma el clan. Con liga, la invitacion con codigo vive en el invite sheet.
-    const message = 'Me estoy entrenando en serio con RivalFit. '
-        'Reúno a mi clan y compito cada semana. ¿Te apuntas?';
+    // El enlace va solo en la ultima linea para que WhatsApp arme el preview
+    // con el sitio oficial.
+    const message =
+        'Me estoy entrenando en serio con RivalFit.\n'
+        'Voy a armar mi clan y competir cada semana.\n'
+        '\n'
+        '¿Te apuntas?\n'
+        '\n'
+        'https://rivalfit.iscx.site/#descargar';
     await SharePlus.instance.share(ShareParams(text: message));
   }
 
@@ -197,8 +214,7 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
     if (confirmed != true || !mounted) return;
     final error = await ref.read(leagueControllerProvider.notifier).leave();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error ?? 'Saliste de la liga')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error ?? 'Saliste de la liga')));
   }
 }

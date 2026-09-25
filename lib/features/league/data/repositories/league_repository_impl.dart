@@ -1,8 +1,8 @@
-import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 import 'package:rivalfit/core/error/failures.dart';
 import 'package:rivalfit/features/league/data/datasources/league_supabase_data_source.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/domain/repositories/league_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class LeagueRepositoryImpl implements LeagueRepository {
   final LeagueSupabaseDataSource dataSource;
@@ -41,13 +41,11 @@ class LeagueRepositoryImpl implements LeagueRepository {
 
   @override
   Future<({List<LeagueMember> items, Failure? error})> getRanking(
-      String leagueId) async {
+    String leagueId,
+  ) async {
     try {
       final rows = await dataSource.getRanking(leagueId);
-      return (
-        items: rows.map(_memberFromMap).toList(),
-        error: null,
-      );
+      return (items: rows.map(_memberFromMap).toList(), error: null);
     } catch (e) {
       return (items: const <LeagueMember>[], error: _friendly(e));
     }
@@ -55,13 +53,11 @@ class LeagueRepositoryImpl implements LeagueRepository {
 
   @override
   Future<({List<UserSearchResult> items, Failure? error})> searchByAlias(
-      String query) async {
+    String query,
+  ) async {
     try {
       final rows = await dataSource.searchByAlias(query);
-      return (
-        items: rows.map(_searchFromMap).toList(),
-        error: null,
-      );
+      return (items: rows.map(_searchFromMap).toList(), error: null);
     } catch (e) {
       return (items: const <UserSearchResult>[], error: _friendly(e));
     }
@@ -71,9 +67,16 @@ class LeagueRepositoryImpl implements LeagueRepository {
   Future<({League? league, Failure? error})> createLeague(
     String name, {
     String emoji = '🏆',
+    String iconText = 'podium',
+    String? socialBet,
   }) async {
     try {
-      final raw = await dataSource.createLeague(name, emoji: emoji);
+      final raw = await dataSource.createLeague(
+        name,
+        emoji: emoji,
+        iconText: iconText,
+        socialBet: socialBet,
+      );
       return (league: _leagueFromMap(raw), error: null);
     } catch (e) {
       return (league: null, error: _friendly(e));
@@ -170,6 +173,8 @@ League _leagueFromMap(Map<String, dynamic> row, {int? memberCount}) {
     id: row['id'] as String,
     name: row['name'] as String,
     emoji: (row['emoji'] as String?) ?? '🏆',
+    iconText: (row['icon_text'] as String?) ?? 'podium',
+    socialBet: row['social_bet'] as String?,
     code: row['code'] as String,
     ownerId: row['owner_id'] as String,
     maxMembers: (row['max_members'] as num).toInt(),

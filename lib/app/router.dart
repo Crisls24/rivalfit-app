@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rivalfit/core/deeplinks/deep_link.dart';
+import 'package:rivalfit/core/deeplinks/deep_link_parser.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_providers.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/recovery_controller.dart';
@@ -14,6 +16,34 @@ import 'package:rivalfit/features/league/presentation/pages/league_join_page.dar
 import 'package:rivalfit/features/league/presentation/pages/league_ranking_page.dart';
 import 'package:rivalfit/features/profile/presentation/pages/complete_profile_page.dart';
 
+/// Enlace profundo inicial (getInitialLink). NULL en arranque normal. En
+/// arranque en frio por OAuth contiene el login-callback de PKCE; se inyecta
+/// desde main() ANTES de crear el router para decidir la ruta del primer frame.
+final initialDeepLinkProvider = Provider<Uri?>((ref) => null);
+
+/// True si al arrancar habia un OAuth pendiente de resolver (el usuario toco
+/// Google y el navegador aun no devuelve la sesion). Se inyecta desde main()
+/// leyendo shared_preferences; junto con [initialDeepLinkProvider] garantiza
+/// que el primer frame NO sea onboarding cuando venimos de un login social.
+final oauthPendingProvider = Provider<bool>((ref) => false);
+
+/// Ruta para el primer frame segun el enlace inicial:
+///
+/// * [DeepLinkKind.loginCallback] o un OAuth pendiente (vienes de validar
+///   Google): arrancar en /login para que el salto a /home ocurra al
+///   completarse la sesion, sin pasar por onboarding (si no, en frio se veria
+///   onboarding -> home como un fallo).
+///
+/// * Cualquier otra cosa (null, join, reset, arranque normal): /onboarding.
+String initialRouteFor(Uri? initialLink, {required bool oauthPending}) {
+  final action =
+      initialLink == null ? null : const DeepLinkParser().parse(initialLink);
+  if (action?.kind == DeepLinkKind.loginCallback || oauthPending) {
+    return '/login';
+  }
+  return '/onboarding';
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
   // El GoRouter se crea UNA sola vez. Si se recreara en cada cambio de estado
   // de auth (registryProvider viendo authControllerProvider), un nuevo GoRouter
@@ -26,17 +56,54 @@ final routerProvider = Provider<GoRouter>((ref) {
   });
 
   return GoRouter(
-    initialLocation: '/onboarding',
+    // En arranque en frio por OAuth arranca en /login (nunca en onboarding);
+    // en arranque normal en /onboarding. Se decide con el enlace inicial ANTES
+    // del primer frame, asi no destella onboarding al volver de Google.
+    // ignore: avoid_print
+    initialLocation: () {
+      final route = initialRouteFor(
+        ref.read(initialDeepLinkProvider),
+        oauthPending: ref.read(oauthPendingProvider),
+      );
+      // ignore: avoid_print
+      print('[diag] router inicial: $route');
+      return route;
+    }(),
+    // Ignora el deep link que el SO entrega al arrancar (p. ej. la URI del
+    // login-callback de OAuth). Sin esto, go_router intenta resolver
+    // `com.rivalfit.rivalfit://login-callback?...` como ruta y muestra
+    // "No routes for location". Los deep links reales (join/reset) se
+    // atienden via app_links en main.dart, no por el engine del router.
+    overridePlatformDefaultLocation: true,
     refreshListenable: authRefresh,
+    observers: [_RouteObservingObserver()],
+    errorBuilder: (context, state) => const _RouteErrorPage(),
     redirect: (context, state) {
       final recoveryStep = ref.read(recoveryControllerProvider).step;
-      return _resolveRedirect(
-        ref.read(authControllerProvider),
-        state.matchedLocation,
-        recoveryStep,
-      );
+      final auth = ref.read(authControllerProvider);
+      final result = _resolveRedirect(auth, state.matchedLocation, recoveryStep);
+      // ignore: avoid_print
+      print(
+          '[redirect] loc=${state.matchedLocation} status=${auth.status} -> ${result ?? "null"}');
+      return result;
     },
     routes: [
+      // La URI custom del login-callback de OAuth (`com.rivalfit.rivalfit://
+      // login-callback?...`) que Android entrega EN CALIENTE al volver de
+      // Chrome se normaliza a `/` (path vacio). En vez de caer en la pantalla
+      // de error (que destellaba onboarding mientras la sesion seguia en
+      // loading), se trata como ruta valida y se redirige de inmediato a la
+      // ruta correcta segun la sesion: /login si todavia esta resolviendose,
+      // /home (o /complete-profile) si el OAuth ya confirmo la sesion.
+      GoRoute(
+        path: '/',
+        name: 'oauth-callback-fallback',
+        redirect: (context, state) {
+          final auth = ref.read(authControllerProvider);
+          final step = ref.read(recoveryControllerProvider).step;
+          return _resolveRedirect(auth, '/login', step) ?? '/login';
+        },
+      ),
       GoRoute(
         path: '/onboarding',
         name: 'onboarding',
@@ -112,7 +179,8 @@ String? _resolveRedirect(
   String location,
   RecoveryStep recoveryStep,
 ) {
-  // 1) Aun cargando el estado inicial: deja pasar para no parpadear.
+  // 1) Aun cargando el estado inicial: deja pasar para no parpadear. (Con el
+  // bootstrap sincrono del AuthController este estado apenas dura un frame.)
   if (auth.status == AuthStatus.loading || auth.status == AuthStatus.initial) {
     return null;
   }
@@ -159,3 +227,60 @@ String? _resolveRedirect(
 }
 
 bool isProfile(String location) => location == '/complete-profile';
+
+/// Instrumentacion temporal: imprime cada ruta que pasa a primer plano para
+/// diagnosticar el destello de onboarding al volver de OAuth.
+class _RouteObservingObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    // ignore: avoid_print
+    print('[route] ${DateTime.now().millisecondsSinceEpoch} push ${route.settings.name}');
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    // ignore: avoid_print
+    print(
+        '[route] ${DateTime.now().millisecondsSinceEpoch} replace ${newRoute?.settings.name} (was ${oldRoute?.settings.name})');
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    // ignore: avoid_print
+    print('[route] ${DateTime.now().millisecondsSinceEpoch} pop ${route.settings.name}');
+  }
+}
+
+/// Pantalla de emergencia para rutas no reconocidas (p. ej. una URI de deep
+/// link custom que llego al router en caliente sin encajar en `/`). Redirige
+/// una sola vez a la ruta correcta segun la sesion en lugar de dejar la
+/// pantalla roja de go_router. Nunca cae en /onboarding mientras la sesion
+/// esta en loading (OAuth en curso): ahi va a /login y deja que
+/// onAuthStateChange lo lleve a /home al confirmarse.
+class _RouteErrorPage extends ConsumerStatefulWidget {
+  const _RouteErrorPage();
+
+  @override
+  ConsumerState<_RouteErrorPage> createState() => _RouteErrorPageState();
+}
+
+class _RouteErrorPageState extends ConsumerState<_RouteErrorPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final auth = ref.read(authControllerProvider);
+      final step = ref.read(recoveryControllerProvider).step;
+      final destination =
+          _resolveRedirect(auth, '/login', step) ?? '/login';
+      context.go(destination);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Transparente: no destella ningun color mientras se resuelve la ruta real.
+    return const SizedBox.shrink();
+  }
+}

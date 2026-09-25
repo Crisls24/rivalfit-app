@@ -41,6 +41,7 @@ void main() {
       repo = MockAuthRepository();
       when(() => repo.onAuthStateChange)
           .thenAnswer((_) => const Stream<User?>.empty());
+      when(() => repo.currentUserSnapshot).thenReturn(null);
       when(() => repo.getCurrentUser())
           .thenAnswer((_) async => (user: null, error: null));
     });

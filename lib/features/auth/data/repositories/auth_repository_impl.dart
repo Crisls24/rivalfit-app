@@ -140,6 +140,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  domain.User? get currentUserSnapshot {
+    final sbUser = dataSource.getCurrentSupabaseUser();
+    if (sbUser == null) return null;
+    return _mapUser(sbUser);
+  }
+
+  @override
   Future<({domain.User? user, Failure? error})> getCurrentUser() async {
     try {
       final sbUser = dataSource.getCurrentSupabaseUser();

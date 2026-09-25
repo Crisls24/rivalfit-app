@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import 'app/router.dart';
+import 'app/route_keeper.dart';
 import 'app/theme/app_theme.dart';
 import 'core/deeplinks/deep_link.dart';
 import 'core/deeplinks/deep_link_parser.dart';
@@ -31,8 +32,38 @@ Future<void> main() async {
     ),
   );
 
+  Uri? initialLink;
+  try {
+    // Enlace profundo que abrio la app (NULL en arranque normal). En arranque
+    // en frio por OAuth es el login-callback de PKCE; lo usamos para que el
+    // primer frame arranque en /login y luego salte a /home, sin pasar por
+    // onboarding.
+    initialLink = await AppLinks().getInitialLink();
+    // ignore: avoid_print
+    print('[diag] initialLink en main: $initialLink');
+  } catch (_) {
+    initialLink = null;
+  }
+
+  // Red de seguridad INDEPENDIENTE del deep link: si hay un OAuth pendiente
+  // de resolver (shared_preferences marcado al tocar "Continuar con Google"),
+  // el primer frame arranca en /login, nunca en onboarding. Cubre los casos
+  // donde el arranque en frio no entrega el login-callback como intent inicial.
+  var oauthPending = false;
+  try {
+    oauthPending = await RouteKeeper.isOAuthPending();
+  } catch (_) {
+    oauthPending = false;
+  }
+  // ignore: avoid_print
+  print('[diag] oauthPending: $oauthPending');
+
   runApp(
     ProviderScope(
+      overrides: [
+        initialDeepLinkProvider.overrideWithValue(initialLink),
+        oauthPendingProvider.overrideWithValue(oauthPending),
+      ],
       child: const RivalFitApp(),
     ),
   );
@@ -135,6 +166,23 @@ class _RivalFitAppState extends ConsumerState<RivalFitApp> {
 
       case DeepLinkKind.loginCallback:
         // Callback OAuth (PKCE): lo consume supabase_flutter, no es accion.
+        // Red de seguridad para arranque en frio: si al montar el router aún
+        // no hay sesion y quedó en /onboarding, se queda en /login y deja que
+        // onAuthStateChange lo lleve a /home cuando la sesion se confirme.
+        if (ref.read(authControllerProvider).status ==
+            AuthStatus.authenticated) {
+          return;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final location = ref.read(routerProvider).state.matchedLocation;
+          if (location != '/onboarding') return;
+          if (ref.read(authControllerProvider).status ==
+              AuthStatus.authenticated) {
+            return;
+          }
+          ref.read(routerProvider).go('/login');
+        });
         return;
     }
   }

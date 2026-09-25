@@ -5,6 +5,7 @@ import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
 /// Clasificacion completa de la liga (hasta 10 miembros). Se abre desde la tab
@@ -33,16 +34,16 @@ class _LeagueRankingPageState extends ConsumerState<LeagueRankingPage> {
     final state = ref.watch(leagueControllerProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.iceBackground,
+      backgroundColor: AppColors.backgroundDeep,
       appBar: AppBar(
-        backgroundColor: AppColors.iceBackground,
+        backgroundColor: AppColors.backgroundDeep,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: const BackButton(color: AppColors.carbon),
+        leading: const BackButton(color: Colors.white),
         title: const Text(
           'Clasificación',
           style: TextStyle(
-            color: AppColors.carbon,
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w900,
           ),
@@ -51,21 +52,21 @@ class _LeagueRankingPageState extends ConsumerState<LeagueRankingPage> {
       ),
       body: switch (state.status) {
         LeagueStatus.loading => const Center(
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.carbon,
-              backgroundColor: AppColors.panelSoft,
-            ),
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: AppColors.carbon,
+            backgroundColor: AppColors.panelSoft,
           ),
+        ),
         LeagueStatus.error => _ErrorView(message: state.errorMessage ?? ''),
-        _ => state.league == null
-            ? const _NoLeagueView()
-            : _RankingList(
-                league: state.league!,
-                ranking: state.ranking,
-                currentUserId:
-                    ref.watch(authControllerProvider).user?.id,
-              ),
+        _ =>
+          state.league == null
+              ? const _NoLeagueView()
+              : _RankingList(
+                  league: state.league!,
+                  ranking: state.ranking,
+                  currentUserId: ref.watch(authControllerProvider).user?.id,
+                ),
       },
     );
   }
@@ -93,9 +94,13 @@ class _RankingList extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: Colors.white,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF171717), Color(0xFF0D0D0D)],
+            ),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.subtleBorder),
+            border: Border.all(color: AppColors.glassBorder),
           ),
           child: Row(
             children: [
@@ -105,11 +110,15 @@ class _RankingList extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.volt.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(13),
+                  border: Border.all(
+                    color: AppColors.volt.withValues(alpha: 0.25),
+                  ),
                 ),
                 child: Center(
-                  child: Text(
-                    league.emoji,
-                    style: const TextStyle(fontSize: 22),
+                  child: Icon(
+                    leagueIconData(league.iconText),
+                    size: 20,
+                    color: AppColors.volt,
                   ),
                 ),
               ),
@@ -123,7 +132,7 @@ class _RankingList extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: AppColors.carbon,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w900,
                       ),
@@ -132,7 +141,7 @@ class _RankingList extends StatelessWidget {
                     Text(
                       '${ranking.length}/${league.maxMembers} integrantes',
                       style: TextStyle(
-                        color: AppColors.grayMain.withValues(alpha: 0.85),
+                        color: AppColors.textGray,
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                       ),
@@ -167,7 +176,7 @@ class _RankingList extends StatelessWidget {
         Text(
           'Esta semana',
           style: TextStyle(
-            color: AppColors.carbon.withValues(alpha: 0.7),
+            color: Colors.white.withValues(alpha: 0.7),
             fontSize: 13,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.2,
@@ -181,7 +190,7 @@ class _RankingList extends StatelessWidget {
               'Aún no hay puntos esta semana. ¡Haz tu primer entrenamiento!',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.grayMain.withValues(alpha: 0.8),
+                color: AppColors.textGray,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 height: 1.4,

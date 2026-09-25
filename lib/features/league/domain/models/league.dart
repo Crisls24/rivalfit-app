@@ -4,6 +4,8 @@ class League {
   final String id;
   final String name;
   final String emoji;
+  final String iconText;
+  final String? socialBet;
   final String code;
   final String ownerId;
   final int maxMembers;
@@ -18,6 +20,8 @@ class League {
     required this.maxMembers,
     required this.createdAt,
     this.emoji = '🏆',
+    this.iconText = 'podium',
+    this.socialBet,
     this.memberCount = 0,
   });
 }

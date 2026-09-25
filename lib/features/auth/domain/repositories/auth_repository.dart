@@ -39,6 +39,12 @@ abstract class AuthRepository {
 
   Future<({User? user, Failure? error})> getCurrentUser();
 
+  /// Snapshot SINCRONO de la sesion ya restaurada por supabase_flutter en
+  /// `Supabase.initialize`. El AuthController lo lee en su constructor para
+  /// que el primer frame del router resuelva directo a /home u /onboarding,
+  /// sin pantallas intermedias ni destello.
+  User? get currentUserSnapshot;
+
   /// Stream de cambios de sesion. Fuente de verdad del flujo OAuth: cuando el
   /// navegador regresa por el deep link, se emite la sesion cerrada. El valor
   /// es null cuando la sesion termina (sign out).

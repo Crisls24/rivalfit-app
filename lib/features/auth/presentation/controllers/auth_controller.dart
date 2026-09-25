@@ -62,8 +62,20 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
 
   AuthController(this._repo) : super(const AuthState()) {
     WidgetsBinding.instance.addObserver(this);
-    _init();
+    // Restaura la sesion ya cargada por supabase_flutter (initialize) de forma
+    // SINCRONA, antes del primer frame del router. Asi el primer redirect ya
+    // resuelve a /home u /onboarding directo: sin splash ni destello.
+    _bootstrapSync();
     _listenToAuthChanges();
+  }
+
+  void _bootstrapSync() {
+    final user = _repo.currentUserSnapshot;
+    // ignore: avoid_print
+    print('[diag] bootstrapSync user: ${user == null ? "null" : user.email}');
+    state = user != null
+        ? AuthState(status: AuthStatus.authenticated, user: user)
+        : const AuthState(status: AuthStatus.unauthenticated);
   }
 
   /// Cuando la app vuelve al frente tras el navegador de OAuth, el deep link
@@ -76,6 +88,7 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
         if (_oauthInFlight && state.status == AuthStatus.loading) {
           _oauthInFlight = false;
           _oauthTimeoutTimer?.cancel();
+          unawaited(RouteKeeper.clearOAuthPending());
           state = state.copyWith(status: AuthStatus.unauthenticated);
         }
       });
@@ -91,6 +104,7 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
       (user) {
         _oauthInFlight = false;
         _oauthTimeoutTimer?.cancel();
+        unawaited(RouteKeeper.clearOAuthPending());
         // Preservar isRecovering: este evento dispara cuando verifyOTP crea la
         // sesion temporal de recovery y no debe romper el guard del router.
         state = AuthState(
@@ -100,10 +114,14 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
           user: user,
           isRecovering: state.isRecovering,
         );
+        // ignore: avoid_print
+        print(
+            '[auth] ${DateTime.now().millisecondsSinceEpoch} usuario=${user == null ? "null" : user.email}');
       },
       onError: (Object error) {
         _oauthInFlight = false;
         _oauthTimeoutTimer?.cancel();
+        unawaited(RouteKeeper.clearOAuthPending());
         if (state.status == AuthStatus.loading) {
           state = state.copyWith(status: AuthStatus.unauthenticated);
         }
@@ -117,19 +135,6 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     _oauthTimeoutTimer?.cancel();
     _authSubscription?.cancel();
     super.dispose();
-  }
-
-  Future<void> _init() async {
-    state = state.copyWith(status: AuthStatus.loading);
-    final result = await _repo.getCurrentUser();
-    if (result.user != null) {
-      state = state.copyWith(
-        status: AuthStatus.authenticated,
-        user: result.user,
-      );
-    } else {
-      state = state.copyWith(status: AuthStatus.unauthenticated);
-    }
   }
 
   Future<void> signUpWithEmail({
@@ -217,14 +222,17 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
     _oauthTimeoutTimer = Timer(_oauthTimeout, () {
       if (state.status == AuthStatus.loading) {
         _oauthInFlight = false;
+        unawaited(RouteKeeper.clearOAuthPending());
         state = state.copyWith(status: AuthStatus.unauthenticated);
       }
     });
 
+    await RouteKeeper.markOAuthPending();
     final result = await launch();
     if (result.error != null) {
       _oauthInFlight = false;
       _oauthTimeoutTimer?.cancel();
+      unawaited(RouteKeeper.clearOAuthPending());
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: result.error!.message,
@@ -240,7 +248,11 @@ class AuthController extends StateNotifier<AuthState> with WidgetsBindingObserve
 
   Future<void> signOut() async {
     await _repo.signOut();
-    state = const AuthState(status: AuthStatus.unauthenticated);
+    state = state.copyWith(
+      status: AuthStatus.unauthenticated,
+      user: null,
+      profileSkippedThisSession: false,
+    );
   }
 
   /// Marca/desmarca el flujo de recuperacion de contrasena. Mientras este

@@ -11,7 +11,7 @@ class LeagueSupabaseDataSource {
   final SupabaseClient _client;
 
   LeagueSupabaseDataSource({SupabaseClient? client})
-      : _client = client ?? Supabase.instance.client;
+    : _client = client ?? Supabase.instance.client;
 
   String? get _userId => _client.auth.currentUser?.id;
 
@@ -70,10 +70,20 @@ class LeagueSupabaseDataSource {
 
   /// Crea una liga. El codigo de invitacion y el owner los resuelve el backend
   /// (triggers set_league_code / add_owner_as_member).
-  Future<Map<String, dynamic>> createLeague(String name, {String emoji = '🏆'}) async {
+  Future<Map<String, dynamic>> createLeague(
+    String name, {
+    String emoji = '🏆',
+    String iconText = 'podium',
+    String? socialBet,
+  }) async {
     final row = await _client
         .from('leagues')
-        .insert({'name': name, 'emoji': emoji})
+        .insert({
+          'name': name,
+          'emoji': emoji,
+          'icon_text': iconText,
+          'social_bet': socialBet,
+        })
         .select()
         .single()
         .timeout(_requestTimeout);
