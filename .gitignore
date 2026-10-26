@@ -44,6 +44,17 @@ app.*.map.json
 
 # === RivalFit: sensitive / non-app files ===
 
+# Local secrets and credentials
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
+
 # Infrastructure (Supabase self-hosted, Docker, secrets)
 infra/
 

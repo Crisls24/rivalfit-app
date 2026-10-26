@@ -1,14 +1,27 @@
 {
   "version": "0.2.0",
+  "inputs": [
+    {
+      "id": "supabaseUrl",
+      "type": "promptString",
+      "description": "URL de tu instancia de Supabase"
+    },
+    {
+      "id": "supabaseAnonKey",
+      "type": "promptString",
+      "description": "Anon key de tu instancia de Supabase",
+      "password": true
+    }
+  ],
   "configurations": [
     {
-      "name": "RivalFit (Supabase dev)",
+      "name": "RivalFit (Supabase local)",
       "request": "launch",
       "type": "dart",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=SUPABASE_URL=https://fit-api.iscx.site",
-        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg3NTQ3NTkzLCJleHAiOjE5NDUyMjc1OTN9.aBEIQEPBw-Q8cPlb4BY2PHLyiiJW-ZPOAh2D3NdnUWA"
+        "--dart-define=SUPABASE_URL=${input:supabaseUrl}",
+        "--dart-define=SUPABASE_ANON_KEY=${input:supabaseAnonKey}"
       ]
     }
   ]
