@@ -9,7 +9,7 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 enum MuscleGroup {
   chestArms('Pecho y brazos', Icons.fitness_center_rounded),
   legs('Piernas', Icons.accessibility_new_rounded),
-  core('Core', Icons.sports_gymnastics),
+  core('Abdomen', Icons.sports_gymnastics),
   cardio('Cardio', Icons.monitor_heart_rounded);
 
   final String label;
@@ -38,8 +38,7 @@ class Exercise {
     required this.muscleGroups,
   });
 
-  String get muscleLabel =>
-      muscleGroups.map((g) => g.label).join(' · ');
+  String get muscleLabel => muscleGroups.map((g) => g.label).join(' · ');
 }
 
 /// Catálogo inicial de RivalFit (PRD seccion 3).

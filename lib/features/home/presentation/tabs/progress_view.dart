@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/app/widgets/app_card.dart';
-import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
+import 'package:rivalfit/features/home/presentation/widgets/muscle_map_card.dart';
+import 'package:rivalfit/features/home/presentation/widgets/progress_emblem.dart';
 
-/// Tab "Mi progreso": rango global (PRD seccion 4.5), rango por grupo
-/// muscular (Bronce -> Diamante) e insignias. Los datos llegan en la Fase 3;
-/// aqui se muestra la estructura con contadores en cero.
 class ProgressView extends StatelessWidget {
-  const ProgressView({super.key});
+  final List<String> earnedTrophies;
+
+  const ProgressView({super.key, this.earnedTrophies = const []});
 
   @override
   Widget build(BuildContext context) {
@@ -41,27 +41,7 @@ class ProgressView extends StatelessWidget {
             const SizedBox(height: 24),
             const _RankCard(),
             const SizedBox(height: 24),
-            const Text(
-              'Músculos',
-              style: TextStyle(
-                color: AppColors.carbon,
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 2.0,
-              children: [
-                for (final group in MuscleGroup.values)
-                  _MuscleCard(group: group),
-              ],
-            ),
+            const MuscleMapCard(),
             const SizedBox(height: 24),
             const Text(
               'Insignias',
@@ -72,7 +52,7 @@ class ProgressView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const _BadgesEmpty(),
+            _TrophyCollection(earnedTrophies: earnedTrophies),
           ],
         ),
       ),
@@ -93,44 +73,37 @@ class _RankCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: AppColors.volt.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.military_tech_rounded,
-                  size: 24,
-                  color: AppColors.carbon,
-                ),
+              const ProgressEmblem(
+                icon: Icons.bolt_rounded,
+                finish: ProgressEmblemFinish.volt,
+                size: 46,
               ),
               const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'NOVATO',
-                    style: TextStyle(
-                      color: AppColors.carbon,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'NOVATO',
+                      style: TextStyle(
+                        color: AppColors.carbon,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Rango global',
-                    style: TextStyle(
-                      color: AppColors.grayMain.withValues(alpha: 0.85),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                    const SizedBox(height: 2),
+                    Text(
+                      'Rango global',
+                      style: TextStyle(
+                        color: AppColors.grayMain.withValues(alpha: 0.85),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const Spacer(),
               const Text(
                 'Nv. 0',
                 style: TextStyle(
@@ -153,7 +126,7 @@ class _RankCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            '0 / 50 reps para subir a Principiante',
+            '0 de 50 reps para Principiante',
             style: TextStyle(
               color: AppColors.grayMain,
               fontSize: 11.5,
@@ -166,102 +139,67 @@ class _RankCard extends StatelessWidget {
   }
 }
 
-class _MuscleCard extends StatelessWidget {
-  final MuscleGroup group;
+class _TrophyCollection extends StatelessWidget {
+  final List<String> earnedTrophies;
 
-  const _MuscleCard({required this.group});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      borderRadius: BorderRadius.circular(18),
-      showShadow: false,
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: AppColors.volt.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(group.icon, size: 17, color: AppColors.carbon),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  group.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.carbon,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'BRONCE · 0 reps',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.grayMain.withValues(alpha: 0.8),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BadgesEmpty extends StatelessWidget {
-  const _BadgesEmpty();
+  const _TrophyCollection({required this.earnedTrophies});
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.all(24),
-      color: AppColors.panelSoft,
-      showShadow: false,
-      child: Column(
-        children: [
-          Icon(
-            Icons.emoji_events_outlined,
-            size: 42,
-            color: AppColors.grayMain.withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Aún no tienes insignias',
-            style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.9),
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+    if (earnedTrophies.isEmpty) {
+      return const AppCard(
+        showShadow: false,
+        child: Row(
+          children: [
+            ProgressEmblem(
+              icon: Icons.emoji_events_outlined,
+              finish: ProgressEmblemFinish.steel,
+              size: 42,
+              medallion: true,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Tus trofeos aparecerán aquí al desbloquearlos.',
+                style: TextStyle(color: AppColors.grayMain, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final title in earnedTrophies)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppCard(
+              showShadow: false,
+              child: Row(
+                children: [
+                  const ProgressEmblem(
+                    icon: Icons.emoji_events_rounded,
+                    finish: ProgressEmblemFinish.bronze,
+                    size: 46,
+                    medallion: true,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.carbon,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            'Se desbloquean al alcanzar hitos (rachas, marcas y rangos).',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.75),
-              fontSize: 12,
-              height: 1.45,
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
