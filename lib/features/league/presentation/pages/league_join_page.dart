@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/core/error/failures.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
@@ -22,6 +23,7 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
   League? _league;
   bool? _alreadyMember;
   String? _error;
+  bool _invalidCode = false;
   bool _joining = false;
 
   @override
@@ -31,13 +33,23 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
+    setState(() => _error = null);
     final repo = ref.read(leagueRepositoryProvider);
     final myLeague = await repo.getMyLeague();
     final found = await repo.findByCode(widget.code);
     if (!mounted) return;
 
-    if (found.error != null) {
-      setState(() => _error = found.error!.message);
+    if (found.league == null || found.error != null || myLeague.error != null) {
+      setState(() {
+        _invalidCode =
+            found.error is NotFoundFailure ||
+            (found.league == null && found.error == null);
+        _error =
+            found.error?.message ??
+            myLeague.error?.message ??
+            'No encontramos una liga con ese código.';
+      });
       return;
     }
     setState(() {
@@ -53,8 +65,8 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
     final error = await ref
         .read(leagueControllerProvider.notifier)
         .join(widget.code);
-    ref.read(leagueControllerProvider.notifier).consumePendingJoinCode();
     if (!mounted) return;
+    ref.read(leagueControllerProvider.notifier).consumePendingJoinCode();
     if (error != null) {
       setState(() => _joining = false);
       ScaffoldMessenger.of(context)
@@ -62,7 +74,7 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
-    context.go('/home');
+    context.go('/home?tab=league');
     messenger.showSnackBar(
       SnackBar(content: Text('¡Te uniste a ${_league?.name ?? 'la liga'}!')),
     );
@@ -70,7 +82,11 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
 
   void _dismiss() {
     ref.read(leagueControllerProvider.notifier).consumePendingJoinCode();
-    context.go('/home');
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home?tab=league');
+    }
   }
 
   @override
@@ -80,10 +96,18 @@ class _LeagueJoinPageState extends ConsumerState<LeagueJoinPage> {
       body = _ResultView(
         icon: Icons.error_outline_rounded,
         iconColor: AppColors.danger,
-        title: 'Código no válido',
+        title: _invalidCode ? 'Código no válido' : 'No pudimos cargar la liga',
         message: _error!,
-        actionLabel: 'Ir a inicio',
-        onAction: _dismiss,
+        actionLabel: _invalidCode ? 'Cambiar código' : 'Reintentar',
+        onAction: _invalidCode
+            ? () {
+                if (context.canPop()) {
+                  context.pop(true);
+                } else {
+                  _dismiss();
+                }
+              }
+            : _load,
       );
     } else if (_league == null || _alreadyMember == null) {
       body = const Center(

@@ -9,7 +9,6 @@ import 'package:rivalfit/features/league/presentation/widgets/invite_sheet.dart'
 import 'package:rivalfit/features/league/presentation/widgets/league_card.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_state_views.dart';
-import 'package:share_plus/share_plus.dart';
 
 /// Tab "Liga": compite contra tus amigos y demuestra tu disciplina. Sin liga
 /// muestra la accion de crear/unirse; con liga muestra la clasificacion top 5,
@@ -65,7 +64,7 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
             const SizedBox(height: 5),
             Text(
               state.league == null
-                  ? 'Compite contra tus amigos. Demuestra tu disciplina.'
+                  ? 'Compite con tus amigos cada semana.'
                   : '${state.league!.name} · competencia semanal',
               style: const TextStyle(
                 color: AppColors.grayMain,
@@ -87,11 +86,20 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
                     ? LeagueEmptyState(
                         onCreate: _openCreateDialog,
                         onJoin: _openJoinDialog,
-                        onInviteFriends: _shareApp,
+                        onInviteFriends: () => showShareRivalFitSheet(context),
                       )
                     : LeagueCard(
                         league: state.league!,
                         ranking: state.ranking,
+                        rankingLoading: state.rankingLoading,
+                        rankingError: state.rankingError,
+                        photoError: state.photoError,
+                        onRetryRanking: ref
+                            .read(leagueControllerProvider.notifier)
+                            .loadRanking,
+                        onRetryPhoto: ref
+                            .read(leagueControllerProvider.notifier)
+                            .retryPhoto,
                         currentUserId: ref
                             .watch(authControllerProvider)
                             .user
@@ -108,10 +116,8 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
   }
 
   Future<void> _openCreateDialog() async {
-    final hadLeague = ref.read(leagueControllerProvider).league != null;
-    await showCreateLeagueSheet(
+    final created = await showCreateLeagueSheet(
       context,
-      initialName: ref.watch(authControllerProvider).user?.displayName ?? '',
       onCreate: (name, emoji, socialBet, photoBytes, photoFileName) => ref
           .read(leagueControllerProvider.notifier)
           .createLeague(
@@ -122,46 +128,24 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
             photoFileName: photoFileName,
           ),
     );
-    if (!mounted) return;
-    final league = ref.read(leagueControllerProvider).league;
-    if (!hadLeague && league != null) {
-      await showLeagueCreatedDialog(
-        context,
-        league: league,
-        onInvite: () => showInviteSheet(context, league),
-      );
-    }
+    if (!mounted || created != true) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Liga creada')));
   }
 
   Future<void> _openJoinDialog() async {
-    final hadLeague = ref.read(leagueControllerProvider).league != null;
-    await showJoinLeagueDialog(
-      context,
-      onSubmit: (code) =>
-          ref.read(leagueControllerProvider.notifier).join(code),
-    );
-    if (!mounted) return;
-    final league = ref.read(leagueControllerProvider).league;
-    if (!hadLeague && league != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('¡Bienvenido a ${league.name}!')));
+    var initialCode = '';
+    while (true) {
+      if (!mounted) return;
+      final code = await showLeagueCodeSheet(context, initialCode: initialCode);
+      if (!mounted || code == null) return;
+      final editCode = await context.pushNamed<bool>(
+        'join',
+        pathParameters: {'code': code},
+      );
+      if (editCode != true) return;
+      initialCode = code;
     }
-  }
-
-  Future<void> _shareApp() async {
-    // Sin liga aun no hay codigo que compartir: invita a la app mientras se
-    // forma el clan. Con liga, la invitacion con codigo vive en el invite sheet.
-    // El enlace va solo en la ultima linea para que WhatsApp arme el preview
-    // con el sitio oficial.
-    const message =
-        'Me estoy entrenando en serio con RivalFit.\n'
-        'Voy a armar mi clan y competir cada semana.\n'
-        '\n'
-        '¿Te apuntas?\n'
-        '\n'
-        'https://rivalfit.iscx.site/#descargar';
-    await SharePlus.instance.share(ShareParams(text: message));
   }
 
   Future<void> _confirmLeave() async {

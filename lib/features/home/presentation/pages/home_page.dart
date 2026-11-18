@@ -5,32 +5,56 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 import '../tabs/progress_view.dart';
 import '../tabs/settings_view.dart';
 import '../tabs/training_view.dart';
+
 import 'package:rivalfit/features/league/presentation/pages/league_view.dart';
 
 /// Shell principal de la app. Una barra inferior navega entre las 4 secciones:
 /// Entrenar, Liga/amigos, Mi progreso y Ajustes. [IndexedStack] conserva el
 /// estado de cada tab mientras se navega entre ellas.
 class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, this.openLeague = false});
+
+  final bool openLeague;
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends ConsumerState<HomePage> {
-  int _index = 0;
+  late int _index = widget.openLeague ? 1 : 0;
+  bool _progressVisited = false;
+
+  void _selectTab(int index) {
+    if (index == _index) return;
+    setState(() {
+      _index = index;
+      if (index == 2) _progressVisited = true;
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.openLeague && !oldWidget.openLeague) _index = 1;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final tabs = [
+      TrainingView(onGoToLeague: () => _selectTab(1)),
+      const LeagueView(),
+      _progressVisited ? const ProgressView() : const SizedBox.shrink(),
+      const SettingsView(),
+    ];
     return Scaffold(
       backgroundColor: AppColors.iceBackground,
+      // Las hojas modales ajustan su propio contenido con el teclado.
+      resizeToAvoidBottomInset: false,
       body: IndexedStack(
         index: _index,
         children: [
-          TrainingView(onGoToLeague: () => setState(() => _index = 1)),
-          const LeagueView(),
-          const ProgressView(),
-          const SettingsView(),
+          for (var i = 0; i < tabs.length; i++)
+            TickerMode(enabled: i == _index, child: tabs[i]),
         ],
       ),
       bottomNavigationBar: _buildNavigationBar(),
@@ -59,8 +83,9 @@ class _HomePageState extends ConsumerState<HomePage> {
         }),
       ),
       child: NavigationBar(
+        maintainBottomViewPadding: true,
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: _selectTab,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.play_circle_outline_rounded),

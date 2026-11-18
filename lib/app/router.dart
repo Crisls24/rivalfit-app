@@ -132,7 +132,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         name: 'home',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) =>
+            HomePage(openLeague: state.uri.queryParameters['tab'] == 'league'),
       ),
       GoRoute(
         path: '/session',
