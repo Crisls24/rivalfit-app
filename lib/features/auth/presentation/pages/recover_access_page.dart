@@ -52,7 +52,9 @@ class _RecoverAccessPageState extends ConsumerState<RecoverAccessPage> {
     _emailController.dispose();
     _newPasswordController.dispose();
     _confirmController.dispose();
-    _auth.setRecovering(false);
+    // Diferido al siguiente frame: modificar un provider dentro de dispose()
+    // dispara "Tried to modify a provider while the widget tree was building".
+    Future(() => _auth.setRecovering(false));
     super.dispose();
   }
 
