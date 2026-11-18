@@ -10,6 +10,11 @@ import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 class LeagueCard extends StatelessWidget {
   final League league;
   final List<LeagueMember> ranking;
+  final bool rankingLoading;
+  final String? rankingError;
+  final String? photoError;
+  final VoidCallback onRetryRanking;
+  final VoidCallback onRetryPhoto;
   final String? currentUserId;
   final VoidCallback onInvite;
   final VoidCallback onOpenRanking;
@@ -19,13 +24,20 @@ class LeagueCard extends StatelessWidget {
     super.key,
     required this.league,
     required this.ranking,
+    required this.rankingLoading,
+    required this.rankingError,
+    required this.photoError,
+    required this.onRetryRanking,
+    required this.onRetryPhoto,
     required this.currentUserId,
     required this.onInvite,
     required this.onOpenRanking,
     required this.onLeave,
   });
 
-  bool get _isFull => ranking.length >= league.maxMembers;
+  int get _memberCount =>
+      ranking.length > league.memberCount ? ranking.length : league.memberCount;
+  bool get _isFull => _memberCount >= league.maxMembers;
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +67,25 @@ class LeagueCard extends StatelessWidget {
           _LeagueHeader(
             league: league,
             isFull: _isFull,
+            memberCount: _memberCount,
             onLeave: onLeave,
             hasSocialBet: hasSocialBet,
           ),
+          if (photoError != null) ...[
+            const SizedBox(height: 8),
+            Text(photoError!, style: const TextStyle(color: Colors.white70)),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onRetryPhoto,
+                child: const Text('Reintentar foto'),
+              ),
+            ),
+          ],
+          if (_memberCount <= 1 && !_isFull) ...[
+            const SizedBox(height: 12),
+            _InviteButton(onTap: onInvite),
+          ],
           if (hasSocialBet) ...[
             const SizedBox(height: 12),
             Container(
@@ -127,7 +155,18 @@ class LeagueCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (ranking.isEmpty)
+          if (rankingError != null) ...[
+            const Text(
+              'No pudimos cargar la clasificación.',
+              style: TextStyle(color: Colors.white70),
+            ),
+            TextButton(
+              onPressed: onRetryRanking,
+              child: const Text('Reintentar clasificación'),
+            ),
+          ] else if (rankingLoading && ranking.isEmpty)
+            const LinearProgressIndicator(color: AppColors.volt)
+          else if (ranking.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
@@ -152,7 +191,10 @@ class LeagueCard extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 12),
-          if (_isFull) const _FullBadge() else _InviteButton(onTap: onInvite),
+          if (_isFull)
+            const _FullBadge()
+          else if (_memberCount > 1)
+            _InviteButton(onTap: onInvite),
           const SizedBox(height: 18),
           Divider(color: Colors.white.withValues(alpha: 0.08)),
           const SizedBox(height: 8),
@@ -218,12 +260,14 @@ class LeagueCard extends StatelessWidget {
 class _LeagueHeader extends StatelessWidget {
   final League league;
   final bool isFull;
+  final int memberCount;
   final VoidCallback onLeave;
   final bool hasSocialBet;
 
   const _LeagueHeader({
     required this.league,
     required this.isFull,
+    required this.memberCount,
     required this.onLeave,
     required this.hasSocialBet,
   });
@@ -253,6 +297,11 @@ class _LeagueHeader extends StatelessWidget {
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '$memberCount de ${league.maxMembers} integrantes',
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
               const SizedBox(height: 6),
               _CodeChip(code: league.code),

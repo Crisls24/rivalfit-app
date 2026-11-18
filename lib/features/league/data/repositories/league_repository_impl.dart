@@ -73,7 +73,7 @@ class LeagueRepositoryImpl implements LeagueRepository {
   }) async {
     try {
       final raw = await dataSource.createLeague(name, emoji: emoji, socialBet: socialBet);
-      return (league: _leagueFromMap(raw), error: null);
+      return (league: _leagueFromMap(raw, memberCount: 1), error: null);
     } catch (e) {
       return (league: null, error: _friendly(e));
     }

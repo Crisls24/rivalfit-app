@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,6 +17,9 @@ class LeagueState {
   final List<LeagueMember> ranking;
 
   final String? errorMessage;
+  final String? rankingError;
+  final bool rankingLoading;
+  final String? photoError;
 
   /// Codigo de invitacion recibido por deep link mientras no habia sesion.
   /// Se consume al abrir la pagina /join/:code.
@@ -29,6 +33,9 @@ class LeagueState {
     this.league,
     this.ranking = const [],
     this.errorMessage,
+    this.rankingError,
+    this.rankingLoading = false,
+    this.photoError,
     this.pendingJoinCode,
     this.joinInProgress = false,
   });
@@ -38,6 +45,9 @@ class LeagueState {
     Object? league = _unset,
     List<LeagueMember>? ranking,
     Object? errorMessage = _unset,
+    Object? rankingError = _unset,
+    bool? rankingLoading,
+    Object? photoError = _unset,
     Object? pendingJoinCode = _unset,
     bool? joinInProgress,
   }) {
@@ -48,6 +58,13 @@ class LeagueState {
       errorMessage: identical(errorMessage, _unset)
           ? this.errorMessage
           : errorMessage as String?,
+      rankingError: identical(rankingError, _unset)
+          ? this.rankingError
+          : rankingError as String?,
+      rankingLoading: rankingLoading ?? this.rankingLoading,
+      photoError: identical(photoError, _unset)
+          ? this.photoError
+          : photoError as String?,
       pendingJoinCode: identical(pendingJoinCode, _unset)
           ? this.pendingJoinCode
           : pendingJoinCode as String?,
@@ -60,6 +77,7 @@ class LeagueState {
 
 class LeagueController extends StateNotifier<LeagueState> {
   final LeagueRepository _repo;
+  ({String leagueId, Uint8List bytes, String fileName})? _pendingPhoto;
 
   LeagueController(this._repo) : super(const LeagueState());
 
@@ -73,6 +91,7 @@ class LeagueController extends StateNotifier<LeagueState> {
     state = state.copyWith(status: LeagueStatus.loading, errorMessage: null);
 
     final me = await _repo.getMyLeague();
+    if (!mounted) return;
     if (me.error != null) {
       state = state.copyWith(
         status: LeagueStatus.error,
@@ -80,34 +99,61 @@ class LeagueController extends StateNotifier<LeagueState> {
       );
       return;
     }
-    if (me.league == null) {
-      state = state.copyWith(
-        status: LeagueStatus.loaded,
-        league: null,
-        ranking: const [],
-      );
-      return;
-    }
-
-    final ranking = await _repo.getRanking(me.league!.id);
-    if (ranking.error != null) {
-      state = state.copyWith(
-        status: LeagueStatus.error,
-        errorMessage: ranking.error!.message,
-      );
-      return;
-    }
+    final league = me.league;
+    final sameLeague = league?.id == state.league?.id;
+    if (!sameLeague) _pendingPhoto = null;
     state = state.copyWith(
       status: LeagueStatus.loaded,
-      league: me.league,
-      ranking: ranking.items,
+      league: league,
+      ranking: sameLeague ? state.ranking : const [],
+      rankingError: null,
+      rankingLoading: sameLeague && state.rankingLoading,
+      photoError: sameLeague ? state.photoError : null,
     );
+    if (league != null) await loadRanking();
+  }
+
+  Future<void> loadRanking() async {
+    final leagueId = state.league?.id;
+    if (leagueId == null || state.rankingLoading) return;
+    state = state.copyWith(rankingLoading: true, rankingError: null);
+    final ranking = await _repo.getRanking(leagueId);
+    if (!mounted || state.league?.id != leagueId) return;
+    state = state.copyWith(
+      rankingLoading: false,
+      rankingError: ranking.error?.message,
+      ranking: ranking.error == null ? ranking.items : state.ranking,
+    );
+  }
+
+  Future<void> retryPhoto() async {
+    final photo = _pendingPhoto;
+    if (photo == null || state.league?.id != photo.leagueId) return;
+    _pendingPhoto = null;
+    state = state.copyWith(photoError: null);
+    final error = await _repo.uploadLeaguePhoto(
+      leagueId: photo.leagueId,
+      bytes: photo.bytes,
+      fileName: photo.fileName,
+    );
+    if (!mounted || state.league?.id != photo.leagueId) return;
+    if (error != null) {
+      _pendingPhoto = photo;
+      state = state.copyWith(
+        photoError: 'No pudimos guardar la foto de la liga.',
+      );
+      return;
+    }
+    final refreshed = await _repo.getMyLeague();
+    if (!mounted || state.league?.id != photo.leagueId) return;
+    if (refreshed.league?.id == photo.leagueId) {
+      state = state.copyWith(league: refreshed.league);
+    }
   }
 
   void retry() => load();
 
-  /// Crea la liga y recarga el estado. Si se eligio foto, la sube despues de
-  /// insertar (necesita el id de la liga). Devuelve un mensaje de error o null.
+  /// Publica la liga confirmada antes de cargar la foto y la clasificación.
   Future<String?> createLeague(
     String name, {
     String emoji = '🏆',
@@ -118,37 +164,39 @@ class LeagueController extends StateNotifier<LeagueState> {
     if (name.trim().isEmpty) {
       return 'Escribe un nombre para tu liga';
     }
-    if (state.status == LeagueStatus.loading) return null;
+    if (state.status == LeagueStatus.loading) {
+      return 'Hay una operación en curso.';
+    }
+    if (state.league != null) return 'Ya perteneces a una liga.';
     state = state.copyWith(status: LeagueStatus.loading, errorMessage: null);
     final result = await _repo.createLeague(
       name.trim(),
       emoji: emoji,
       socialBet: socialBet,
     );
-    if (result.error != null) {
-      state = state.copyWith(
-        status: LeagueStatus.error,
-        errorMessage: result.error!.message,
-      );
-      return result.error!.message;
-    }
+    if (!mounted) return 'No pudimos confirmar la creación.';
     final league = result.league;
-    if (league != null &&
-        photoBytes != null &&
-        photoFileName != null) {
-      // La foto es opcional: si falla la subida, la liga queda igual creada
-      // con su emblema por defecto.
-      final uploadError = await _repo.uploadLeaguePhoto(
+    if (result.error != null || league == null) {
+      state = state.copyWith(status: LeagueStatus.loaded);
+      return result.error?.message ?? 'No pudimos confirmar la creación.';
+    }
+    state = state.copyWith(
+      status: LeagueStatus.loaded,
+      league: league,
+      ranking: const [],
+      rankingError: null,
+      rankingLoading: false,
+      photoError: null,
+    );
+    if (photoBytes != null && photoFileName != null) {
+      _pendingPhoto = (
         leagueId: league.id,
         bytes: photoBytes,
         fileName: photoFileName,
       );
-      if (uploadError != null) {
-        await _refresh();
-        return null;
-      }
+      unawaited(retryPhoto());
     }
-    await _refresh();
+    unawaited(loadRanking());
     return null;
   }
 
