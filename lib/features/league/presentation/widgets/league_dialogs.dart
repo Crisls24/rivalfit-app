@@ -2,17 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/core/deeplinks/deep_link_parser.dart';
-import 'package:rivalfit/features/league/domain/invite_message.dart';
-import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_keyboard_inset.dart';
 import 'package:share_plus/share_plus.dart';
 
-Future<void> showCreateLeagueSheet(
+Future<bool?> showCreateLeagueSheet(
   BuildContext context, {
-  String initialName = '',
   String initialEmoji = '🏆',
-  String? initialSocialBet,
   required Future<String?> Function(
     String name,
     String emoji,
@@ -22,46 +18,208 @@ Future<void> showCreateLeagueSheet(
   )
   onCreate,
 }) {
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    isDismissible: false,
+    enableDrag: false,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) =>
+        CreateLeagueSheet(initialEmoji: initialEmoji, onCreate: onCreate),
+  );
+}
+
+Future<String?> showLeagueCodeSheet(
+  BuildContext context, {
+  String initialCode = '',
+}) {
+  return showModalBottomSheet<String>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => _LeagueCodeSheet(initialCode: initialCode),
+  );
+}
+
+const _downloadLink = 'https://rivalfit.iscx.site/#descargar';
+
+Future<void> showShareRivalFitSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
-    builder: (sheetContext) => CreateLeagueSheet(
-      initialName: initialName,
-      initialEmoji: initialEmoji,
-      initialSocialBet: initialSocialBet,
-      onCreate: onCreate,
+    builder: (sheetContext) => _LeagueSheet(
+      title: 'Compartir RivalFit',
+      content: [
+        const Center(
+          child: LeagueBadge(size: 58, background: AppColors.carbon),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Envía el enlace de descarga a tus amigos.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.grayMain),
+        ),
+      ],
+      actions: [
+        FilledButton.icon(
+          onPressed: () async {
+            final box = sheetContext.findRenderObject() as RenderBox?;
+            final origin = box == null || !box.hasSize
+                ? null
+                : box.localToGlobal(Offset.zero) & box.size;
+            try {
+              await SharePlus.instance.share(
+                ShareParams(
+                  text:
+                      'Descarga RivalFit para entrenar y competir con tus amigos.\n\n$_downloadLink',
+                  sharePositionOrigin: origin,
+                ),
+              );
+            } catch (_) {
+              if (!sheetContext.mounted) return;
+              ScaffoldMessenger.of(sheetContext).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'No pudimos abrir las opciones para compartir.',
+                  ),
+                ),
+              );
+            }
+          },
+          icon: const Icon(Icons.share_outlined, size: 18),
+          label: const Text('Compartir enlace'),
+          style: _voltButton,
+        ),
+        const SizedBox(height: 6),
+        FilledButton.tonalIcon(
+          onPressed: () async {
+            await Clipboard.setData(const ClipboardData(text: _downloadLink));
+            if (!sheetContext.mounted) return;
+            Navigator.of(sheetContext).pop();
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context)
+                .showSnackBar(const SnackBar(content: Text('Enlace copiado')));
+          },
+          icon: const Icon(Icons.content_copy_rounded, size: 18),
+          label: const Text('Copiar enlace'),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.panelSoft,
+            foregroundColor: AppColors.carbon,
+            minimumSize: const Size(0, 48),
+          ),
+        ),
+      ],
     ),
   );
 }
 
-Future<void> showLeagueCreatedDialog(
-  BuildContext context, {
-  required League league,
-  VoidCallback? onInvite,
-}) {
-  return showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogContext) =>
-        _LeagueCreatedDialog(league: league, onInvite: onInvite),
-  );
-}
+final _voltButton = FilledButton.styleFrom(
+  backgroundColor: AppColors.volt,
+  foregroundColor: AppColors.carbon,
+  disabledBackgroundColor: AppColors.panelSoft,
+  disabledForegroundColor: AppColors.grayMain,
+  minimumSize: const Size(0, 48),
+);
 
-Future<void> showJoinLeagueDialog(
-  BuildContext context, {
-  required Future<String?> Function(String code) onSubmit,
-}) {
-  return showDialog<void>(
-    context: context,
-    builder: (dialogContext) => JoinLeagueDialog(onSubmit: onSubmit),
-  );
+InputDecoration _leagueField(String hint) => InputDecoration(
+  hintText: hint,
+  hintStyle: const TextStyle(color: AppColors.grayMain),
+  filled: true,
+  fillColor: AppColors.panelSoft,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+  border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide.none,
+  ),
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: const BorderSide(color: AppColors.volt, width: 2),
+  ),
+);
+
+class _LeagueSheet extends StatelessWidget {
+  const _LeagueSheet({
+    required this.title,
+    required this.content,
+    required this.actions,
+    this.busy = false,
+  });
+
+  final String title;
+  final List<Widget> content;
+  final List<Widget> actions;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !busy,
+      child: LeagueKeyboardInset(
+        child: Material(
+          color: AppColors.iceBackground,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  color: AppColors.carbon,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
+                              tooltip: 'Cerrar',
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: AppColors.carbon,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...content,
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...actions,
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class CreateLeagueSheet extends StatefulWidget {
-  final String initialName;
   final String initialEmoji;
-  final String? initialSocialBet;
   final Future<String?> Function(
     String name,
     String emoji,
@@ -73,9 +231,7 @@ class CreateLeagueSheet extends StatefulWidget {
 
   const CreateLeagueSheet({
     super.key,
-    this.initialName = '',
     this.initialEmoji = '🏆',
-    this.initialSocialBet,
     required this.onCreate,
   });
 
@@ -89,13 +245,15 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   Uint8List? _photoBytes;
   String? _photoFileName;
   bool _creating = false;
+  bool _showChallenge = false;
+  String? _nameError;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialName);
-    _betController = TextEditingController(text: widget.initialSocialBet ?? '');
+    _controller = TextEditingController();
+    _betController = TextEditingController();
   }
 
   @override
@@ -106,19 +264,24 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   }
 
   Future<void> _pickPhoto() async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      maxHeight: 1024,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-    setState(() {
-      _photoBytes = bytes;
-      _photoFileName = file.name;
-    });
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _photoBytes = bytes;
+        _photoFileName = file.name;
+        _error = null;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _error = 'No pudimos abrir la foto.');
+    }
   }
 
   Future<void> _submit() async {
@@ -126,9 +289,10 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
     final socialBet = _betController.text.trim();
     if (_creating) return;
     if (name.length < 3) {
-      setState(() => _error = 'Mínimo 3 caracteres');
+      setState(() => _nameError = 'Escribe al menos 3 caracteres');
       return;
     }
+    FocusScope.of(context).unfocus();
     setState(() {
       _creating = true;
       _error = null;
@@ -142,7 +306,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
     );
     if (!mounted) return;
     if (error == null) {
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
       return;
     }
     setState(() {
@@ -153,420 +317,164 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final insets = MediaQuery.of(context).viewInsets;
-    final previewName = _controller.text.trim();
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: 18 + insets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.backgroundDark,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.glowNeutral,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  LeagueBadge(bytes: _photoBytes, size: 56, background: AppColors.volt.withValues(alpha: 0.14), borderColor: AppColors.volt.withValues(alpha: 0.44)),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Crear liga',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          'Compite con tus amigos cada semana.',
-                          style: TextStyle(
-                            color: AppColors.textGray,
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.glowNeutral,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.glassBorder),
-                ),
+    return _LeagueSheet(
+      title: 'Crear liga',
+      busy: _creating,
+      content: [
+        const Text(
+          'Nombre de la liga',
+          style: TextStyle(
+            color: AppColors.carbon,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _controller,
+          enabled: !_creating,
+          textCapitalization: TextCapitalization.sentences,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          onChanged: (_) {
+            if (_nameError != null) setState(() => _nameError = null);
+          },
+          style: const TextStyle(color: AppColors.carbon),
+          decoration: _leagueField('Los del lunes')
+              .copyWith(errorText: _nameError),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: _creating ? null : _pickPhoto,
+                borderRadius: BorderRadius.circular(14),
                 child: Row(
                   children: [
-                    LeagueBadge(bytes: _photoBytes, size: 46),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (previewName.isEmpty ? 'NUEVA LIGA' : previewName)
-                                .toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            '10 CUPOS MÁX',
-                            style: TextStyle(
-                              color: AppColors.volt,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.3,
-                            ),
-                          ),
-                        ],
+                    LeagueBadge(
+                      bytes: _photoBytes,
+                      size: 54,
+                      background: AppColors.carbon,
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.edit_outlined,
+                      size: 17,
+                      color: AppColors.carbon,
+                    ),
+                    const SizedBox(width: 6),
+                    const Flexible(
+                      child: Text(
+                        'Cambiar foto',
+                        style: TextStyle(
+                          color: AppColors.carbon,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Nombre de la liga',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
+            ),
+            if (_photoBytes != null)
+              IconButton(
+                tooltip: 'Quitar foto',
+                onPressed: _creating
+                    ? null
+                    : () => setState(() {
+                        _photoBytes = null;
+                        _photoFileName = null;
+                      }),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.grayMain,
                 ),
               ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _controller,
-                enabled: !_creating,
-                maxLength: 20,
-                onChanged: (_) => setState(() {}),
-                textCapitalization: TextCapitalization.words,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Ej. Los Fieras',
-                  hintStyle: TextStyle(
-                    color: AppColors.textPlaceholder,
-                    fontSize: 14,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.glowNeutral,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 15,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.volt),
-                  ),
-                  counterText: '',
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Foto de la liga',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Material(
-                color: AppColors.glowNeutral,
-                borderRadius: BorderRadius.circular(14),
-                child: InkWell(
-                  onTap: _creating ? null : _pickPhoto,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _photoBytes == null
-                              ? Icons.add_a_photo_outlined
-                              : Icons.change_history,
-                          size: 18,
-                          color: _photoBytes == null
-                              ? AppColors.volt
-                              : Colors.white,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _photoBytes == null
-                                ? 'Elegir foto de tu grupo'
-                                : 'Foto elegida · presiona para cambiar',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        if (_photoBytes != null)
-                          InkWell(
-                            onTap: _creating
-                                ? null
-                                : () => setState(() {
-                                      _photoBytes = null;
-                                      _photoFileName = null;
-                                    }),
-                            borderRadius: BorderRadius.circular(8),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4),
-                              child: Icon(
-                                Icons.close,
-                                size: 16,
-                                color: AppColors.textGray,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Sin foto, tu liga usa el emblema de RivalFit.',
-                style: TextStyle(
-                  color: AppColors.textPlaceholder,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Apuesta opcional',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.6,
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _betController,
-                enabled: !_creating,
-                maxLength: 80,
-                textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Ej. El último paga la cena',
-                  hintStyle: TextStyle(
-                    color: AppColors.textPlaceholder,
-                    fontSize: 13,
-                  ),
-                  filled: true,
-                  fillColor: AppColors.glowNeutral,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(color: AppColors.volt),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children:
-                    [
-                      'El último paga la cena',
-                      'Quien pierda paga el brunch',
-                      'La derrota paga la sesión',
-                    ].map((text) {
-                      final selected = _betController.text.trim() == text;
-                      return GestureDetector(
-                        onTap: () {
-                          if (selected) {
-                            _betController.clear();
-                          } else {
-                            _betController.text = text;
-                            _betController.selection = TextSelection.collapsed(
-                              offset: _betController.text.length,
-                            );
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selected
-                                ? AppColors.volt
-                                : AppColors.glowNeutral,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: selected
-                                  ? AppColors.volt
-                                  : AppColors.glassBorder,
-                            ),
-                          ),
-                          child: Text(
-                            text,
-                            style: TextStyle(
-                              color: selected ? AppColors.carbon : Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-              ),
-              const SizedBox(height: 16),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        size: 15,
-                        color: AppColors.danger,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            color: AppColors.danger,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 6),
-              Material(
-                color: _creating ? AppColors.glowNeutral : AppColors.volt,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  onTap: _creating ? null : _submit,
-                  borderRadius: BorderRadius.circular(16),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 15),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: _creating
-                          ? const [
-                              SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.2,
-                                  color: AppColors.volt,
-                                ),
-                              ),
-                            ]
-                          : const [
-                              Icon(
-                                Icons.handshake_rounded,
-                                size: 18,
-                                color: AppColors.carbon,
-                              ),
-                              SizedBox(width: 8),
-                              Text(
-                                'Crear liga',
-                                style: TextStyle(
-                                  color: AppColors.carbon,
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton.tonalIcon(
+          onPressed: _creating
+              ? null
+              : () => setState(() => _showChallenge = !_showChallenge),
+          icon: Icon(_showChallenge ? Icons.expand_less : Icons.add_rounded),
+          label: Text(
+            _showChallenge
+                ? 'Ocultar reto'
+                : _betController.text.trim().isEmpty
+                ? 'Añadir reto opcional'
+                : 'Editar reto opcional',
+          ),
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.panelSoft,
+            foregroundColor: AppColors.carbon,
+            alignment: Alignment.centerLeft,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
           ),
         ),
-      ),
+        if (_showChallenge) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _betController,
+            enabled: !_creating,
+            maxLength: 80,
+            style: const TextStyle(color: AppColors.carbon),
+            textCapitalization: TextCapitalization.sentences,
+            decoration: _leagueField('Ej. El último paga la cena'),
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              for (final suggestion in const [
+                'El último paga la cena',
+                'Quien pierda organiza la revancha',
+              ])
+                ActionChip(
+                  label: Text(suggestion),
+                  onPressed: _creating
+                      ? null
+                      : () => _betController.text = suggestion,
+                ),
+            ],
+          ),
+        ],
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _error!,
+              style: const TextStyle(color: AppColors.danger),
+            ),
+          ),
+      ],
+      actions: [
+        FilledButton(
+          onPressed: _creating ? null : _submit,
+          style: _voltButton,
+          child: Text(_creating ? 'Creando…' : 'Crear liga'),
+        ),
+      ],
     );
   }
 }
 
-class JoinLeagueDialog extends StatefulWidget {
-  final Future<String?> Function(String code) onSubmit;
+class _LeagueCodeSheet extends StatefulWidget {
+  const _LeagueCodeSheet({required this.initialCode});
 
-  const JoinLeagueDialog({super.key, required this.onSubmit});
+  final String initialCode;
 
   @override
-  State<JoinLeagueDialog> createState() => _JoinLeagueDialogState();
+  State<_LeagueCodeSheet> createState() => _LeagueCodeSheetState();
 }
 
-class _JoinLeagueDialogState extends State<JoinLeagueDialog> {
-  final TextEditingController _controller = TextEditingController();
+class _LeagueCodeSheetState extends State<_LeagueCodeSheet> {
+  late final _controller = TextEditingController(text: widget.initialCode);
+  static final _validCode = RegExp(r'^[A-Z0-9]{6}$');
   String? _error;
-  bool _busy = false;
+
+  String get _code => _controller.text.toUpperCase();
 
   @override
   void dispose() {
@@ -574,320 +482,82 @@ class _JoinLeagueDialogState extends State<JoinLeagueDialog> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final code = _controller.text.trim();
-    if (code.isEmpty || _busy) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    final error = await widget.onSubmit(code);
+  void _submit() {
+    if (_validCode.hasMatch(_code)) Navigator.of(context).pop(_code);
+  }
+
+  Future<void> _paste() async {
+    final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
     if (!mounted) return;
-    if (error == null) {
-      Navigator.of(context).pop();
+    final code = clipboard?.text?.trim().toUpperCase() ?? '';
+    if (!_validCode.hasMatch(code)) {
+      setState(() => _error = 'Copia un código de 6 letras o números.');
       return;
     }
-    setState(() {
-      _busy = false;
-      _error = error;
-    });
+    _controller.value = TextEditingValue(
+      text: code,
+      selection: TextSelection.collapsed(offset: code.length),
+    );
+    _clearError();
+  }
+
+  void _clearError() {
+    if (_error != null) setState(() => _error = null);
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      title: const Text(
-        'Unirme con código',
-        style: TextStyle(
-          color: AppColors.carbon,
-          fontSize: 18,
-          fontWeight: FontWeight.w900,
+    return _LeagueSheet(
+      title: 'Tengo un código',
+      content: [
+        const Text(
+          'Escribe o pega los 6 caracteres.',
+          style: TextStyle(color: AppColors.grayMain),
         ),
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Ingresa el código de 6 caracteres que te compartió quien creó la liga.',
-            style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.85),
-              fontSize: 12.5,
-              height: 1.4,
-            ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _controller,
+          textCapitalization: TextCapitalization.characters,
+          textInputAction: TextInputAction.go,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+            LengthLimitingTextInputFormatter(6),
+          ],
+          onChanged: (_) => _clearError(),
+          onSubmitted: (_) => _submit(),
+          style: const TextStyle(
+            color: AppColors.carbon,
+            fontSize: 19,
+            letterSpacing: 3,
           ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _controller,
-            autofocus: true,
-            enabled: !_busy,
-            textCapitalization: TextCapitalization.characters,
-            maxLength: 6,
-            textAlign: TextAlign.center,
-            textInputAction: TextInputAction.done,
-            style: const TextStyle(
-              color: AppColors.carbon,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 4,
-            ),
-            decoration: InputDecoration(
-              hintText: '8F4K9X',
-              counterText: '',
-              hintStyle: TextStyle(
-                color: AppColors.grayMain.withValues(alpha: 0.7),
-                fontSize: 16,
-                letterSpacing: 4,
-              ),
-              filled: true,
-              fillColor: AppColors.panelSoft,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: AppColors.volt),
-              ),
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                _error!,
-                style: const TextStyle(
-                  color: AppColors.danger,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text(
-            'Cancelar',
-            style: TextStyle(
-              color: AppColors.grayMain,
-              fontWeight: FontWeight.w700,
-            ),
+          decoration: _leagueField('ABC123').copyWith(
+            errorText: _error,
+            semanticCounterText: 'Código de 6 caracteres',
           ),
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.volt,
-            foregroundColor: AppColors.carbon,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _paste,
+            style: TextButton.styleFrom(foregroundColor: AppColors.carbon),
+            icon: const Icon(Icons.content_paste_rounded, size: 17),
+            label: const Text('Pegar código'),
           ),
-          onPressed: _busy ? null : _submit,
-          child: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.carbon,
-                  ),
-                )
-              : const Text('Unirme'),
         ),
       ],
-    );
-  }
-}
-
-class _LeagueCreatedDialog extends StatelessWidget {
-  final League league;
-  final VoidCallback? onInvite;
-
-  const _LeagueCreatedDialog({required this.league, this.onInvite});
-
-  @override
-  Widget build(BuildContext context) {
-    final link = joinInviteLink(league.code);
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      backgroundColor: AppColors.backgroundDark,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                LeagueBadge(
-                  photoUrl: league.photoUrl,
-                  size: 42,
-                  background: AppColors.volt.withValues(alpha: 0.18),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Liga creada',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.glowNeutral,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '1 / 10 miembros',
-                    style: TextStyle(
-                      color: AppColors.volt,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    league.name.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundDeep,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      league.code,
-                      style: const TextStyle(
-                        color: AppColors.volt,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: _SimpleActionButton(
-                    label: 'Copiar',
-                    onTap: () async {
-                      await Clipboard.setData(ClipboardData(text: league.code));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Código copiado')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SimpleActionButton(
-                    label: 'Compartir',
-                    onTap: () async {
-                      final text = leagueInviteMessage(
-                        leagueName: league.name,
-                        memberCount: 1,
-                        maxMembers: league.maxMembers,
-                        link: link,
-                      );
-                      await SharePlus.instance.share(ShareParams(text: text));
-                    },
-                    filled: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  if (onInvite != null) {
-                    onInvite!();
-                  }
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.volt,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                child: const Text('Invitar por @alias'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SimpleActionButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  final bool filled;
-
-  const _SimpleActionButton({
-    required this.label,
-    required this.onTap,
-    this.filled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = filled ? AppColors.volt : AppColors.glowNeutral;
-    final fg = filled ? AppColors.carbon : Colors.white;
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: fg,
-                fontSize: 12.5,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+      actions: [
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _controller,
+          child: const Text('Ver liga'),
+          builder: (context, value, child) => FilledButton(
+            onPressed: _validCode.hasMatch(value.text.toUpperCase())
+                ? _submit
+                : null,
+            style: _voltButton,
+            child: child,
           ),
         ),
-      ),
+      ],
     );
   }
 }
