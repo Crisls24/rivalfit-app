@@ -7,6 +7,7 @@ import 'package:rivalfit/features/league/domain/invite_message.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
+import 'package:rivalfit/features/league/presentation/widgets/league_keyboard_inset.dart';
 import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -103,14 +104,8 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final insets = MediaQuery.of(context).viewInsets;
-    return Container(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 12,
-        bottom: 20 + insets.bottom,
-      ),
+    final sheet = Container(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -332,6 +327,7 @@ class _InviteSheetState extends ConsumerState<_InviteSheet> {
         ),
       ),
     );
+    return LeagueKeyboardInset(child: sheet);
   }
 }
 

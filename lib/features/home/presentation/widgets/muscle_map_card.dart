@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
@@ -18,11 +20,13 @@ class MuscleMapCard extends StatefulWidget {
 class _MuscleMapCardState extends State<MuscleMapCard> {
   MuscleGroup _selected = MuscleGroup.legs;
 
-  void _select(MuscleGroup group) => setState(() => _selected = group);
+  void _select(MuscleGroup group) {
+    if (group == _selected) return;
+    setState(() => _selected = group);
+  }
 
   @override
   Widget build(BuildContext context) {
-    const body = Image(image: AssetImage(_bodyAsset), fit: BoxFit.contain);
     return DecoratedBox(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -96,8 +100,12 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            body,
-                            CustomPaint(painter: _MuscleOutline(_selected)),
+                            const _MuscleBody(),
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                painter: _MuscleOutline(_selected),
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -110,6 +118,30 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
             _MuscleDetail(group: _selected),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MuscleBody extends StatelessWidget {
+  const _MuscleBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+    return RepaintBoundary(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final pixelWidth = math.min(
+            _artSize.width.toInt(),
+            math.max(1, (constraints.maxWidth * pixelRatio).ceil()),
+          );
+          return Image.asset(
+            _bodyAsset,
+            fit: BoxFit.contain,
+            cacheWidth: pixelWidth,
+          );
+        },
       ),
     );
   }
