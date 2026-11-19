@@ -11,6 +11,7 @@ import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
 import 'package:rivalfit/features/exercise/presentation/pages/coming_soon_page.dart';
+import 'package:rivalfit/features/exercise/presentation/pages/training_session_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_join_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_ranking_page.dart';
@@ -138,18 +139,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/session',
         name: 'session',
-        builder: (context, state) => const ComingSoonPage(
-          title: 'Empezar entrenamiento',
-          icon: Icons.videocam_outlined,
-          message:
-              'La sesión con cámara y verificación por IA llega en la siguiente fase.',
-        ),
+        builder: (context, state) => const TrainingSessionPage(),
       ),
       GoRoute(
         path: '/exercise/:id',
         name: 'exercise',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? 'ejercicio';
+          if (id == 'sentadillas') {
+            return TrainingSessionPage(
+              fromLeague: state.uri.queryParameters['from'] == 'league',
+            );
+          }
           final title = id[0].toUpperCase() + id.substring(1);
           return ComingSoonPage(
             title: title,

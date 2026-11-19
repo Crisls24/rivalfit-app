@@ -56,10 +56,15 @@ google-services.json
 GoogleService-Info.plist
 
 # Infrastructure (Supabase self-hosted, Docker, secrets)
-infra/
+infra/*
+!infra/sql/
+infra/sql/*
+!infra/sql/league_identity.sql
+!infra/sql/training_sessions_v1.sql
 
 # Scripts
-scripts/
+scripts/*
+!scripts/verify_training_storage.dart
 
 # OpenCode config
 .opencode/
@@ -86,3 +91,4 @@ design/
 # .fvm/fvm_config.json se versiona; solo se ignoran los SDK descargados
 .fvm/flutter_sdk/
 .fvm/versions/
+!infra/sql/league_weekly_ranking_v1.sql
