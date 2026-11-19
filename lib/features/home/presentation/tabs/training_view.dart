@@ -2,17 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/features/auth/domain/entities/user.dart';
+import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
+import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
+import 'package:rivalfit/features/exercise/presentation/widgets/saved_training_sessions_card.dart';
+import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
 
 import '../widgets/exercise_card.dart';
+import '../widgets/recommended_routine_card.dart';
 import '../widgets/weekly_progress_card.dart';
-import 'package:rivalfit/app/widgets/app_card.dart';
 
-/// Tab "Entrenar": el centro de la experiencia. Saludo con avatar, resumen
-/// semanal, CTA para iniciar sesion y el catalogo de ejercicios verificados.
 class TrainingView extends ConsumerWidget {
+  static const backgroundColor = Color(0xFFF8F5EF);
+  static const _freeExercise = SquatSessionRules.exerciseId;
+
   final VoidCallback onGoToLeague;
 
   const TrainingView({super.key, required this.onGoToLeague});
@@ -20,310 +24,180 @@ class TrainingView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authControllerProvider).user;
-
-    return SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Header(user: user),
-            const SizedBox(height: 18),
-            const WeeklyProgressCard(),
-            const SizedBox(height: 18),
-            _HeroCta(),
-            const SizedBox(height: 26),
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Ejercicios',
-                  style: TextStyle(
-                    color: AppColors.carbon,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  'Cámara + IA',
-                  style: TextStyle(
-                    color: AppColors.grayMain,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.02,
-              children: [
-                for (final exercise in appExercises)
-                  ExerciseCard(exercise: exercise),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _LeagueSnapshot(onGoToLeague: onGoToLeague),
-          ],
-        ),
-      ),
+    final hasLeague = ref.watch(
+      leagueControllerProvider.select((state) => state.league != null),
     );
-  }
-}
-
-// ─────────────────────────────────────────────
-
-class _Header extends StatelessWidget {
-  final User? user;
-
-  const _Header({this.user});
-
-  ImageProvider? get _photo {
+    final name = user?.displayName.trim() ?? '';
     final photoUrl = user?.photoUrl;
-    if (photoUrl == null || photoUrl.isEmpty) return null;
-    return NetworkImage(photoUrl);
-  }
+    final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+    final initials = name.isEmpty ? 'R' : name.characters.first.toUpperCase();
 
-  @override
-  Widget build(BuildContext context) {
-    final name = user?.displayName.trim().toLowerCase() ?? '';
-    final fitnessLevel = user?.fitnessLevel?.label;
-    final tagline = fitnessLevel == null
-        ? '¿Qué vas a hacer hoy?'
-        : 'Nivel $fitnessLevel';
-
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '¿Qué vas a hacer hoy?',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.carbon,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w900,
-                  height: 1.15,
-                ),
+    return ColoredBox(
+      color: backgroundColor,
+      child: SafeArea(
+        bottom: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Flexible(
+                        child: Text(
+                          'RivalFit',
+                          style: TextStyle(
+                            color: AppColors.carbon,
+                            fontSize: 28,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -1.4,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor: const Color(0xFF4F2CA7),
+                        foregroundImage: hasPhoto
+                            ? NetworkImage(photoUrl)
+                            : null,
+                        onForegroundImageError: hasPhoto ? (_, _) {} : null,
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Tu rutina de hoy',
+                    style: TextStyle(
+                      color: AppColors.carbon,
+                      fontSize: 25,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.7,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const RecommendedRoutineCard(),
+                  const SizedBox(height: 16),
+                  const WeeklyProgressCard(),
+                  const SizedBox(height: 8),
+                  AppCard(
+                    showShadow: false,
+                    borderRadius: const BorderRadius.all(Radius.circular(16)),
+                    padding: const EdgeInsets.all(12),
+                    onTap: hasLeague
+                        ? () => context.push('/league/ranking')
+                        : onGoToLeague,
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 17,
+                          backgroundColor: Color(0xFFE8F7BF),
+                          foregroundColor: AppColors.carbon,
+                          child: Icon(Icons.leaderboard_outlined, size: 19),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Tu Liga',
+                            style: TextStyle(
+                              color: AppColors.carbon,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            hasLeague ? 'Ver ranking' : 'Ver ligas',
+                            textAlign: TextAlign.end,
+                            style: const TextStyle(
+                              color: AppColors.grayMain,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.carbon,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Ejercicios libres',
+                    style: TextStyle(
+                      color: AppColors.carbon,
+                      fontSize: 21,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  ExerciseCard(
+                    exercise: appExercises.firstWhere(
+                      (e) => e.id == _freeExercise,
+                    ),
+                    available: true,
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Próximamente',
+                    style: TextStyle(
+                      color: AppColors.grayMain,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 8.0;
+                      final scale =
+                          MediaQuery.textScalerOf(context).scale(14) / 14;
+                      final columns = constraints.maxWidth / scale >= 280
+                          ? 2
+                          : 1;
+                      final width =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                          columns;
+                      return Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: [
+                          for (final exercise in appExercises.where(
+                            (e) => e.id != _freeExercise,
+                          ))
+                            SizedBox(
+                              width: width,
+                              child: ExerciseCard(exercise: exercise),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const SavedTrainingSessionsCard(),
+                ],
               ),
-              const SizedBox(height: 3),
-              Text(
-                name.isEmpty ? tagline : '@$name · $tagline',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.grayMain.withValues(alpha: 0.85),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(width: 12),
-        _Avatar(photo: _photo, name: name),
-      ],
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  final ImageProvider? photo;
-  final String name;
-
-  const _Avatar({required this.photo, required this.name});
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = name.isEmpty
-        ? 'R'
-        : name.split(' ').take(2).map((p) => p[0]).join().toUpperCase();
-
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.subtleBorder, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ClipOval(
-        child: photo != null
-            ? Image(image: photo!, fit: BoxFit.cover)
-            : Center(
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: AppColors.carbon,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-}
-
-class _HeroCta extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 18, 18, 20),
-      decoration: BoxDecoration(
-        color: AppColors.carbon,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.volt.withValues(alpha: 0.14),
-            blurRadius: 22,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Empezar entrenamiento',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
-                  ),
-                ),
-                SizedBox(height: 5),
-                Text(
-                  'La cámara y la IA verifican cada repetición',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Material(
-            color: AppColors.volt,
-            shape: const CircleBorder(),
-            child: InkWell(
-              onTap: () => context.push('/session'),
-              customBorder: const CircleBorder(),
-              splashColor: Colors.black26,
-              child: const SizedBox(
-                width: 54,
-                height: 54,
-                child: Icon(
-                  Icons.play_arrow_rounded,
-                  size: 30,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LeagueSnapshot extends StatelessWidget {
-  final VoidCallback onGoToLeague;
-
-  const _LeagueSnapshot({required this.onGoToLeague});
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      color: AppColors.panelSoft,
-      showShadow: false,
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: AppColors.volt.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.group_add_rounded,
-              size: 24,
-              color: AppColors.carbon,
-            ),
-          ),
-          const SizedBox(width: 14),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tu Liga',
-                  style: TextStyle(
-                    color: AppColors.carbon,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                SizedBox(height: 3),
-                Text(
-                  'Crea o únete a una liga y compite contra hasta 10 amigos.',
-                  style: TextStyle(
-                    color: AppColors.grayMain,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Material(
-            color: AppColors.carbon,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: onGoToLeague,
-              borderRadius: BorderRadius.circular(12),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Text(
-                  'Ir',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

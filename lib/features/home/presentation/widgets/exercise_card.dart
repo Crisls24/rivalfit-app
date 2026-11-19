@@ -4,52 +4,66 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
 
-/// Card del catalogo de ejercicios de la tab "Entrenar". Muestra icono,
-/// nombre y grupo muscular; al tocarla abre la ruta de detalle del ejercicio.
-/// El conteo de reps del dia se conectara cuando existan sesiones (Fase 3).
 class ExerciseCard extends StatelessWidget {
   final Exercise exercise;
+  final bool available;
 
-  const ExerciseCard({super.key, required this.exercise});
+  const ExerciseCard({
+    super.key,
+    required this.exercise,
+    this.available = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(available ? 12 : 9),
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      showShadow: false,
       onTap: () => context.push('/exercise/${exercise.id}'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: exercise.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(exercise.icon, size: 24, color: exercise.accent),
+          CircleAvatar(
+            radius: available ? 19 : 15,
+            backgroundColor: available
+                ? const Color(0xFFE8F7BF)
+                : AppColors.panelSoft,
+            foregroundColor: AppColors.carbon,
+            child: Icon(exercise.icon, size: available ? 21 : 17),
           ),
-          const Spacer(),
-          Text(
-            exercise.name,
-            style: const TextStyle(
-              color: AppColors.carbon,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  exercise.name,
+                  style: TextStyle(
+                    color: AppColors.carbon,
+                    fontSize: available ? 16 : 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (available)
+                  Text(
+                    exercise.muscleLabel,
+                    style: const TextStyle(
+                      color: AppColors.grayMain,
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            exercise.muscleLabel,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: AppColors.grayMain.withValues(alpha: 0.85),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
+          if (available) ...[
+            const SizedBox(width: 8),
+            const CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.volt,
+              foregroundColor: AppColors.carbon,
+              child: Icon(Icons.play_arrow_rounded, size: 21),
             ),
-          ),
-          const Spacer(),
+          ],
         ],
       ),
     );

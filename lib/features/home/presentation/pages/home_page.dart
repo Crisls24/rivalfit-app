@@ -57,15 +57,28 @@ class _HomePageState extends ConsumerState<HomePage> {
             TickerMode(enabled: i == _index, child: tabs[i]),
         ],
       ),
-      bottomNavigationBar: _buildNavigationBar(),
+      bottomNavigationBar: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          border: _index == 0
+              ? const Border(top: BorderSide(color: AppColors.subtleBorder))
+              : null,
+        ),
+        child: _buildNavigationBar(),
+      ),
     );
   }
 
   Widget _buildNavigationBar() {
+    final isTraining = _index == 0;
     return NavigationBarTheme(
       data: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: AppColors.volt.withValues(alpha: 0.28),
+        backgroundColor: isTraining
+            ? TrainingView.backgroundColor
+            : Colors.white,
+        indicatorColor: isTraining
+            ? Colors.transparent
+            : AppColors.volt.withValues(alpha: 0.28),
         elevation: 0,
         iconTheme: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
@@ -89,7 +102,16 @@ class _HomePageState extends ConsumerState<HomePage> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.play_circle_outline_rounded),
-            selectedIcon: Icon(Icons.play_circle_fill_rounded),
+            selectedIcon: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.volt,
+                shape: BoxShape.circle,
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(5),
+                child: Icon(Icons.play_arrow_rounded, size: 23),
+              ),
+            ),
             label: 'Entrenar',
           ),
           NavigationDestination(
