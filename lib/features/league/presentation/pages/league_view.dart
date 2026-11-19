@@ -1,3 +1,5 @@
+import '../widgets/league_training_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -74,6 +76,11 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
               ),
             ),
             const SizedBox(height: 24),
+            if (state.status == LeagueStatus.loaded && state.league != null)
+              LeagueTrainingAction(
+                ranking: state.ranking,
+                currentUserId: ref.watch(authControllerProvider).user?.id,
+              ),
             switch (state.status) {
               LeagueStatus.loading => const LeagueLoadingCard(),
               LeagueStatus.error => LeagueErrorCard(

@@ -59,6 +59,12 @@ class LeagueSupabaseDataSource {
   /// Ranking de la liga ordenado por puntos semanales desc (empatados: antes
   /// quien se unio primero).
   Future<List<Map<String, dynamic>>> getRanking(String leagueId) async {
+    if (const bool.fromEnvironment('LEAGUE_WEEKLY_RANKING_ENABLED')) {
+      final rows = await _client
+          .rpc('league_weekly_ranking_v1', params: {'p_league': leagueId})
+          .timeout(_requestTimeout);
+      return List<Map<String, dynamic>>.from(rows as List);
+    }
     final rows = await _client
         .from('league_members')
         .select(

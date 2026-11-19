@@ -1,3 +1,5 @@
+import '../widgets/league_training_action.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
@@ -162,6 +164,7 @@ class _RankingList extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 22),
+        LeagueTrainingAction(ranking: ranking, currentUserId: currentUserId),
         Text(
           'Esta semana',
           style: TextStyle(

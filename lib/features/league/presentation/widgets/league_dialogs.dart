@@ -165,6 +165,7 @@ class _LeagueSheet extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: SafeArea(
             top: false,
+            maintainBottomViewPadding: true,
             minimum: const EdgeInsets.fromLTRB(20, 10, 20, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -245,6 +246,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   Uint8List? _photoBytes;
   String? _photoFileName;
   bool _creating = false;
+  bool _pickingPhoto = false;
   bool _showChallenge = false;
   String? _nameError;
   String? _error;
@@ -264,7 +266,13 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
   }
 
   Future<void> _pickPhoto() async {
+    if (_pickingPhoto || _creating) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _pickingPhoto = true);
     try {
+      // Da al botón la oportunidad de pintar su estado antes de abrir Android.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
       final file = await ImagePicker().pickImage(
         source: ImageSource.gallery,
         maxWidth: 1024,
@@ -281,13 +289,15 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
       });
     } catch (_) {
       if (mounted) setState(() => _error = 'No pudimos abrir la foto.');
+    } finally {
+      if (mounted) setState(() => _pickingPhoto = false);
     }
   }
 
   Future<void> _submit() async {
     final name = _controller.text.trim();
     final socialBet = _betController.text.trim();
-    if (_creating) return;
+    if (_creating || _pickingPhoto) return;
     if (name.length < 3) {
       setState(() => _nameError = 'Escribe al menos 3 caracteres');
       return;
@@ -347,7 +357,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
           children: [
             Expanded(
               child: InkWell(
-                onTap: _creating ? null : _pickPhoto,
+                onTap: _creating || _pickingPhoto ? null : _pickPhoto,
                 borderRadius: BorderRadius.circular(14),
                 child: Row(
                   children: [
@@ -357,11 +367,17 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
                       background: AppColors.carbon,
                     ),
                     const SizedBox(width: 10),
-                    const Icon(
-                      Icons.edit_outlined,
-                      size: 17,
-                      color: AppColors.carbon,
-                    ),
+                    if (_pickingPhoto)
+                      const SizedBox.square(
+                        dimension: 17,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 17,
+                        color: AppColors.carbon,
+                      ),
                     const SizedBox(width: 6),
                     const Flexible(
                       child: Text(
@@ -451,7 +467,7 @@ class _CreateLeagueSheetState extends State<CreateLeagueSheet> {
       ],
       actions: [
         FilledButton(
-          onPressed: _creating ? null : _submit,
+          onPressed: _creating || _pickingPhoto ? null : _submit,
           style: _voltButton,
           child: Text(_creating ? 'Creando…' : 'Crear liga'),
         ),

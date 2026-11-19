@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../training_progress.dart';
+import '../../../exercise/presentation/controllers/training_storage_providers.dart';
+
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/home/presentation/widgets/muscle_map_card.dart';
 import 'package:rivalfit/features/home/presentation/widgets/progress_emblem.dart';
 
-class ProgressView extends StatelessWidget {
+class ProgressView extends ConsumerWidget {
   final List<String> earnedTrophies;
 
   const ProgressView({super.key, this.earnedTrophies = const []});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(trainingProgressProvider);
+    final progress = state.valueOrNull ?? const TrainingProgress(0, 0);
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
@@ -39,9 +46,19 @@ class ProgressView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const _RankCard(),
+            if (state.isLoading) const LinearProgressIndicator(),
+            if (state.hasError)
+              TextButton(
+                onPressed: () => ref.invalidate(savedTrainingSessionsProvider),
+                child: const Text('No se pudo cargar tu progreso. Reintentar'),
+              ),
+            if (progress.pendingReps > 0)
+              Text(
+                '${progress.pendingReps} repeticiones pendientes de sincronizar',
+              ),
+            MuscleMapCard(legReps: progress.confirmedReps),
             const SizedBox(height: 24),
-            const MuscleMapCard(),
+            _RankCard(progress: progress),
             const SizedBox(height: 24),
             const Text(
               'Insignias',
@@ -52,7 +69,12 @@ class ProgressView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _TrophyCollection(earnedTrophies: earnedTrophies),
+            _TrophyCollection(
+              earnedTrophies: {
+                ...earnedTrophies,
+                ...progress.trophies,
+              }.toList(),
+            ),
           ],
         ),
       ),
@@ -63,7 +85,8 @@ class ProgressView extends StatelessWidget {
 // ─────────────────────────────────────────────
 
 class _RankCard extends StatelessWidget {
-  const _RankCard();
+  final TrainingProgress progress;
+  const _RankCard({required this.progress});
 
   @override
   Widget build(BuildContext context) {
@@ -83,8 +106,8 @@ class _RankCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'NOVATO',
+                    Text(
+                      progress.rank.toUpperCase(),
                       style: TextStyle(
                         color: AppColors.carbon,
                         fontSize: 17,
@@ -104,8 +127,8 @@ class _RankCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Text(
-                'Nv. 0',
+              Text(
+                'Nv. ${progress.level}',
                 style: TextStyle(
                   color: AppColors.grayMain,
                   fontSize: 12,
@@ -117,16 +140,16 @@ class _RankCard extends StatelessWidget {
           const SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: const LinearProgressIndicator(
-              value: 0,
+            child: LinearProgressIndicator(
+              value: progress.fraction,
               minHeight: 9,
               backgroundColor: AppColors.panelSoft,
               valueColor: AlwaysStoppedAnimation(AppColors.volt),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            '0 de 50 reps para Principiante',
+          Text(
+            progress.rankCaption,
             style: TextStyle(
               color: AppColors.grayMain,
               fontSize: 11.5,
