@@ -62,4 +62,23 @@ void main() {
     expect(find.text('Sin entrenar'), findsOneWidget);
     expect(find.text('Bronce'), findsNothing);
   });
+  testWidgets('confirmed push-ups unlock Bronze for chest and arms', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: MuscleMapCard(chestArmReps: 2)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('0 reps confirmadas'), findsOneWidget);
+    expect(find.text('Sin entrenar'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Pecho y brazos'));
+    await tester.pumpAndSettle();
+    expect(find.text('2 reps confirmadas'), findsOneWidget);
+    expect(find.text('Bronce'), findsOneWidget);
+  });
 }
