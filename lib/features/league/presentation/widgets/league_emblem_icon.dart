@@ -80,11 +80,13 @@ class LeagueBadge extends StatelessWidget {
       );
     }
 
+    final pixelSize = (size * MediaQuery.devicePixelRatioOf(context)).ceil();
     final image = bytes != null
-        ? Image.memory(bytes!, fit: BoxFit.cover)
+        ? Image.memory(bytes!, fit: BoxFit.cover, cacheWidth: pixelSize)
         : Image.network(
             photoUrl!,
             fit: BoxFit.cover,
+            cacheWidth: pixelSize,
             errorBuilder: (_, _, _) => _frame(
               borderRadius,
               decoration: BoxDecoration(

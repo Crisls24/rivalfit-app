@@ -10,7 +10,7 @@ class LeagueKeyboardInset extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: child,
+      child: RepaintBoundary(child: child),
     );
   }
 }
