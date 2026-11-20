@@ -29,6 +29,7 @@ void main() {
     frame(300, 100);
     frame(450, 0, visible: false);
     expect(session.phase, TrainingPhase.active);
+    expect(session.feedback, 'Fuera de cuadro');
     frame(600, 100);
     frame(900, 100);
     frame(1050, 170);
@@ -40,6 +41,95 @@ void main() {
     frame(2450, 170);
     frame(2750, 170);
     expect(session.reps, 1);
+  });
+
+  testWidgets('tracking timeout preserves confirmed reps and finalizes once', (
+    tester,
+  ) async {
+    session.processObservation(
+      const SquatObservation(
+        timestamp: Duration.zero,
+        readiness: PostureReadiness(true, true, 'Postura lista'),
+        leftKneeAngle: 170,
+        rightKneeAngle: 170,
+        hipHeight: 0.5,
+      ),
+    );
+    session.start();
+    session.recordValidRep();
+    const missingFor = Duration(seconds: 1);
+    await tester.pump(missingFor);
+    session.processObservation(
+      const SquatObservation(
+        timestamp: missingFor,
+        readiness: PostureReadiness(false, false, ''),
+        leftKneeAngle: double.nan,
+        rightKneeAngle: double.nan,
+        hipHeight: double.nan,
+      ),
+    );
+
+    const lastMillisecond = Duration(milliseconds: 1);
+    await tester.pump(
+      TrainingSessionController.trackingLossLimit -
+          missingFor -
+          lastMillisecond,
+    );
+    expect(session.phase, TrainingPhase.recovering);
+    expect(session.result, isNull);
+
+    await tester.pump(lastMillisecond);
+    final result = session.result!;
+    expect(result.validReps, 1);
+    expect(session.phase, TrainingPhase.finished);
+    expect(session.endedAfterTrackingLoss, isTrue);
+    session.updatePosture(ready: true);
+    session.finish();
+    expect(session.result, same(result));
+    session.prepareAnotherSeries();
+    expect(session.endedAfterTrackingLoss, isFalse);
+  });
+
+  testWidgets('returning into frame cancels timeout before posture is ready', (
+    tester,
+  ) async {
+    session.updatePosture(ready: true);
+    session.start();
+    session.updatePosture(ready: false);
+    await tester.pump(const Duration(seconds: 6));
+    session.processObservation(
+      const SquatObservation(
+        timestamp: Duration(seconds: 6),
+        readiness: PostureReadiness(true, false, 'Ponte de pie'),
+        leftKneeAngle: 145,
+        rightKneeAngle: 145,
+        hipHeight: 0.4,
+      ),
+    );
+    await tester.pump(const Duration(seconds: 5));
+    expect(session.phase, TrainingPhase.recovering);
+    expect(session.feedback, 'Ponte de pie');
+    expect(session.result, isNull);
+
+    session.updatePosture(ready: true);
+    expect(session.phase, TrainingPhase.active);
+  });
+
+  testWidgets('manual pause cancels the automatic finish', (tester) async {
+    session.updatePosture(ready: true);
+    session.start();
+    session.updatePosture(ready: false);
+    await tester.pump(const Duration(seconds: 6));
+    session.pause();
+    await tester.pump(TrainingSessionController.trackingLossLimit);
+    expect(session.phase, TrainingPhase.paused);
+    expect(session.result, isNull);
+
+    session.resume();
+    session.updatePosture(ready: true);
+    await tester.pump(TrainingSessionController.trackingLossLimit);
+    expect(session.phase, TrainingPhase.active);
+    expect(session.endedAfterTrackingLoss, isFalse);
   });
 
   test('detector cycles count only during activity and reset on pause', () {

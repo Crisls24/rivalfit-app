@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../domain/models/training_session.dart';
 import '../../domain/models/squat_observation.dart';
+import '../../domain/models/training_observation.dart';
+import '../../domain/services/push_up_counter.dart';
 import '../../domain/services/squat_counter.dart';
 
 enum TrainingPhase { preparation, active, recovering, paused, finished }
@@ -9,26 +13,35 @@ enum TrainingPhase { preparation, active, recovering, paused, finished }
 /// Session transitions independent of the camera, navigation and persistence.
 /// Only a complete cycle from a posture source may call [recordValidRep].
 class TrainingSessionController extends ChangeNotifier {
+  static const trackingLossLimit = Duration(seconds: 10);
+
   TrainingSessionController({
     this.source = TrainingSource.camera,
+    this.movement = TrainingMovement.squat,
     DateTime Function()? now,
     String Function()? createId,
   }) : _now = now ?? DateTime.now,
        _createId = createId ?? createTrainingSessionId;
 
   final TrainingSource source;
+  final TrainingMovement movement;
   final DateTime Function() _now;
   final String Function() _createId;
   final Stopwatch _clock = Stopwatch();
-  final SquatCounter _counter = SquatCounter();
-  String _feedback = 'Ponte de pie y mantén la postura inicial.';
+  late final TrainingRepCounter _counter = switch (movement) {
+    TrainingMovement.squat => SquatCounter(),
+    TrainingMovement.pushUp => PushUpCounter(),
+  };
+  late String _feedback = _counter.instruction;
   DateTime? _startedAt;
   String? _sessionId;
   TrainingSessionResult? _result;
   TrainingPhase _phase = TrainingPhase.preparation;
   bool _postureReady = false;
   int _reps = 0;
-  SquatObservation? _lastUsable;
+  TrainingObservation? _lastUsable;
+  Timer? _trackingLossTimer;
+  bool _endedAfterTrackingLoss = false;
 
   TrainingPhase get phase => _phase;
   bool get postureReady => _postureReady;
@@ -36,6 +49,7 @@ class TrainingSessionController extends ChangeNotifier {
   String get feedback => _feedback;
   String? get sessionId => _sessionId;
   TrainingSessionResult? get result => _result;
+  bool get endedAfterTrackingLoss => _endedAfterTrackingLoss;
   TrainingSessionResult? checkpoint() {
     if (_result != null) return _result;
     if (_startedAt == null || _sessionId == null) return null;
@@ -47,7 +61,9 @@ class TrainingSessionController extends ChangeNotifier {
   bool get inProgress =>
       _phase != TrainingPhase.preparation && _phase != TrainingPhase.finished;
 
-  void updatePosture({required bool ready}) {
+  void updatePosture({required bool ready}) => _updatePosture(ready);
+
+  void _updatePosture(bool ready, {Duration trackingGap = Duration.zero}) {
     if (_phase == TrainingPhase.finished) return;
     var changed = _postureReady != ready;
     _postureReady = ready;
@@ -58,8 +74,12 @@ class TrainingSessionController extends ChangeNotifier {
     if (!ready && _phase == TrainingPhase.active) {
       _clock.stop();
       _phase = TrainingPhase.recovering;
+      _feedback = 'Fuera de cuadro';
+      _watchTrackingLoss(elapsed: trackingGap);
+      if (_phase == TrainingPhase.finished) return;
       changed = true;
     } else if (ready && _phase == TrainingPhase.recovering) {
+      _cancelTrackingTimeout();
       _clock.start();
       _phase = TrainingPhase.active;
       changed = true;
@@ -67,43 +87,83 @@ class TrainingSessionController extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  void processObservation(SquatObservation observation) {
+  void processObservation(TrainingObservation observation) {
     if (_phase == TrainingPhase.finished || _phase == TrainingPhase.paused) {
       return;
     }
-    final usable = SquatCounter.usable(observation);
+    final usable = _counter.isUsable(observation);
     final previous = _lastUsable;
     if (kDebugMode && const bool.fromEnvironment('SQUAT_TRACE')) {
+      final details = switch (observation) {
+        SquatObservation(
+          :final leftKneeAngle,
+          :final rightKneeAngle,
+          :final hipHeight,
+        ) =>
+          'left=${leftKneeAngle.toStringAsFixed(1)} right=${rightKneeAngle.toStringAsFixed(1)} hipHeight=${hipHeight.toStringAsFixed(3)} ',
+        PushUpObservation(
+          :final elbowAngle,
+          :final shoulderHeight,
+          :final side,
+          :final aligned,
+        ) =>
+          'side=${side?.name} elbow=${elbowAngle.toStringAsFixed(1)} height=${shoulderHeight.toStringAsFixed(3)} aligned=$aligned ',
+        _ => '',
+      };
       debugPrint(
-        '[squat] ${observation.timestamp.inMilliseconds}ms '
+        '[${movement.name.toLowerCase()}] ${observation.timestamp.inMilliseconds}ms '
         '$phase/${_counter.phase.name} visible=${observation.readiness.bodyVisible} '
         'ready=${observation.readiness.initialPostureReady} usable=$usable '
-        'left=${observation.leftKneeAngle.toStringAsFixed(1)} '
-        'right=${observation.rightKneeAngle.toStringAsFixed(1)} '
-        'hipHeight=${observation.hipHeight.toStringAsFixed(3)} '
+        '$details'
         'gapMs=${previous == null ? null : (observation.timestamp - previous.timestamp).inMilliseconds} '
         'reps=$_reps',
       );
     }
     if (previous != null && observation.timestamp <= previous.timestamp) return;
+    final gap = previous == null
+        ? Duration.zero
+        : observation.timestamp - previous.timestamp;
     if (_phase == TrainingPhase.active) {
       final lost =
-          previous != null &&
-          observation.timestamp - previous.timestamp >
-              SquatSessionRules.maximumFrameGap;
-      if (lost) updatePosture(ready: false);
+          gap > SquatSessionRules.maximumFrameGap ||
+          (previous == null && !usable);
+      if (lost) {
+        _updatePosture(false, trackingGap: gap);
+        if (_phase == TrainingPhase.finished) return;
+      }
       if (!usable && !lost) {
-        _counter.interruptStability();
-        _setFeedback('Mantente dentro del encuadre.');
+        if (observation is PushUpObservation &&
+            observation.readiness.bodyVisible &&
+            !observation.aligned) {
+          _counter.reset();
+        } else {
+          _counter.interruptStability();
+        }
+        _setFeedback(_trackingInstruction(observation));
         return;
       }
     }
     if (_phase != TrainingPhase.active) {
       final ready = usable && observation.readiness.initialPostureReady;
       final recovering = _phase == TrainingPhase.recovering;
+      if (recovering && !usable) {
+        _watchTrackingLoss(elapsed: gap);
+        if (_phase != TrainingPhase.finished) {
+          _setFeedback(_trackingInstruction(observation));
+        }
+        return;
+      }
+      if (recovering) {
+        _cancelTrackingTimeout();
+        _lastUsable = observation;
+        if (!ready) {
+          _setFeedback(observation.readiness.instruction);
+          return;
+        }
+        _counter.arm(observation);
+      }
       if (ready) {
         _lastUsable = observation;
-        if (recovering) _counter.arm(observation);
       }
       updatePosture(ready: ready);
       _setFeedback(
@@ -117,6 +177,32 @@ class TrainingSessionController extends ChangeNotifier {
     final counted = _counter.observe(observation);
     _setFeedback(_counter.instruction);
     if (counted) recordValidRep();
+  }
+
+  String _trackingInstruction(TrainingObservation observation) =>
+      observation.readiness.bodyVisible
+      ? 'Ajusta tu posición'
+      : 'Fuera de cuadro';
+
+  void _watchTrackingLoss({required Duration elapsed}) {
+    if (_trackingLossTimer != null) return;
+    final remaining = trackingLossLimit - elapsed;
+    if (remaining <= Duration.zero) {
+      _finishAfterTrackingLoss();
+    } else {
+      _trackingLossTimer = Timer(remaining, _finishAfterTrackingLoss);
+    }
+  }
+
+  void _cancelTrackingTimeout() {
+    _trackingLossTimer?.cancel();
+    _trackingLossTimer = null;
+  }
+
+  void _finishAfterTrackingLoss() {
+    if (_phase != TrainingPhase.recovering) return;
+    _endedAfterTrackingLoss = true;
+    finish();
   }
 
   void _setFeedback(String value) {
@@ -151,6 +237,7 @@ class TrainingSessionController extends ChangeNotifier {
     if (_phase != TrainingPhase.active && _phase != TrainingPhase.recovering) {
       return;
     }
+    _cancelTrackingTimeout();
     _clock.stop();
     _postureReady = false;
     _lastUsable = null;
@@ -164,12 +251,14 @@ class TrainingSessionController extends ChangeNotifier {
     _postureReady = false;
     _lastUsable = null;
     _counter.reset();
+    _feedback = _counter.instruction;
     _phase = TrainingPhase.recovering;
     notifyListeners();
   }
 
   void finish() {
     if (!inProgress) return;
+    _cancelTrackingTimeout();
     _clock.stop();
     _counter.reset();
     _result = _snapshot();
@@ -183,6 +272,7 @@ class TrainingSessionController extends ChangeNotifier {
     _startedAt = null;
     _sessionId = null;
     _result = null;
+    _endedAfterTrackingLoss = false;
     _postureReady = false;
     _lastUsable = null;
     _reps = 0;
@@ -199,8 +289,8 @@ class TrainingSessionController extends ChangeNotifier {
     final now = _now().toUtc();
     return TrainingSessionResult(
       sessionId: _sessionId!,
-      exerciseId: SquatSessionRules.exerciseId,
-      rulesVersion: SquatSessionRules.version,
+      exerciseId: movement.id,
+      rulesVersion: movement.rulesVersion,
       source: source,
       startedAtUtc: startedAt,
       endedAtUtc: now.isBefore(earliestEnd) ? earliestEnd : now,
@@ -211,6 +301,7 @@ class TrainingSessionController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _cancelTrackingTimeout();
     _clock.stop();
     super.dispose();
   }

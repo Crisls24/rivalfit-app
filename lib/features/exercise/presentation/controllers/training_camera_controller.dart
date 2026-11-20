@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
@@ -7,6 +8,9 @@ import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 
 import '../../domain/models/posture_readiness.dart';
 import '../../domain/models/squat_observation.dart';
+import '../../domain/models/training_observation.dart';
+import '../../domain/models/training_session.dart';
+import '../../domain/services/push_up_counter.dart';
 
 enum TrainingCameraStatus {
   idle,
@@ -21,10 +25,15 @@ enum TrainingCameraStatus {
 /// Android-only stream. At most one frame is processed at a time, without
 /// recording files, audio or sending images over the network.
 class TrainingCameraController extends ChangeNotifier {
-  TrainingCameraController({this.onObservation});
+  TrainingCameraController({
+    this.onObservation,
+    this.movement = TrainingMovement.squat,
+  });
 
-  final ValueChanged<SquatObservation>? onObservation;
+  final ValueChanged<TrainingObservation>? onObservation;
+  final TrainingMovement movement;
   final _gate = PostureReadinessGate();
+  final _pushUpGate = PushUpPoseGate();
   final _clock = Stopwatch()..start();
   CameraController? _camera;
   PoseDetector? _detector;
@@ -111,7 +120,7 @@ class TrainingCameraController extends ChangeNotifier {
           model: PoseDetectionModel.base,
         ),
       );
-      _gate.reset();
+      _resetPoseGate();
       _lastResult = _clock.elapsed;
       await candidate.startImageStream(_onImage);
       _status = TrainingCameraStatus.ready;
@@ -124,7 +133,7 @@ class TrainingCameraController extends ChangeNotifier {
               'No vemos tu postura. Vuelve a colocarte frente a la cámara.',
             ),
           );
-          _gate.reset();
+          _resetPoseGate();
         }
       });
       _emit();
@@ -159,7 +168,15 @@ class TrainingCameraController extends ChangeNotifier {
       return;
     }
     _lastFrame = _clock.elapsed;
-    _processing = _process(image).whenComplete(() => _processing = null);
+    final timing = kProfileMode
+        ? (TimelineTask()..start(
+            movement == TrainingMovement.squat ? 'Squat pose' : 'Push-up pose',
+          ))
+        : null;
+    _processing = _process(image).whenComplete(() {
+      timing?.finish();
+      _processing = null;
+    });
   }
 
   Future<void> _process(CameraImage image) async {
@@ -200,7 +217,7 @@ class TrainingCameraController extends ChangeNotifier {
       if (_closed || !_wanted || controller != _camera) return;
       _lastResult = _clock.elapsed;
       if (poses.length != 1) {
-        _gate.reset();
+        _resetPoseGate();
         _reportTrackingLoss(
           const PostureReadiness(
             false,
@@ -223,6 +240,31 @@ class TrainingCameraController extends ChangeNotifier {
             final p = pose.landmarks[type]!;
             return BodyPoint(p.x / width, p.y / height, p.likelihood);
           }).toList();
+      final timestamp = _clock.elapsed;
+      final aspectRatio = width / height;
+      if (movement == TrainingMovement.pushUp) {
+        final observation = _pushUpGate.evaluate(
+          left: points([
+            PoseLandmarkType.leftShoulder,
+            PoseLandmarkType.leftElbow,
+            PoseLandmarkType.leftWrist,
+            PoseLandmarkType.leftHip,
+            PoseLandmarkType.leftAnkle,
+          ]),
+          right: points([
+            PoseLandmarkType.rightShoulder,
+            PoseLandmarkType.rightElbow,
+            PoseLandmarkType.rightWrist,
+            PoseLandmarkType.rightHip,
+            PoseLandmarkType.rightAnkle,
+          ]),
+          timestamp: timestamp,
+          aspectRatio: aspectRatio,
+        );
+        onObservation?.call(observation);
+        _update(observation.readiness);
+        return;
+      }
       final leftLeg = points([
         PoseLandmarkType.leftHip,
         PoseLandmarkType.leftKnee,
@@ -233,8 +275,6 @@ class TrainingCameraController extends ChangeNotifier {
         PoseLandmarkType.rightKnee,
         PoseLandmarkType.rightAnkle,
       ]);
-      final timestamp = _clock.elapsed;
-      final aspectRatio = width / height;
       final readiness = _gate.evaluate(
         leftLeg: leftLeg,
         rightLeg: rightLeg,
@@ -251,8 +291,8 @@ class TrainingCameraController extends ChangeNotifier {
         SquatObservation(
           timestamp: timestamp,
           readiness: readiness,
-          leftKneeAngle: kneeAngle(leftLeg, aspectRatio),
-          rightKneeAngle: kneeAngle(rightLeg, aspectRatio),
+          leftKneeAngle: jointAngle(leftLeg, aspectRatio),
+          rightKneeAngle: jointAngle(rightLeg, aspectRatio),
           hipHeight: readiness.bodyVisible
               ? ((leftLeg[2].y - leftLeg[0].y) +
                         (rightLeg[2].y - rightLeg[0].y)) /
@@ -263,7 +303,7 @@ class TrainingCameraController extends ChangeNotifier {
       _update(readiness);
     } catch (_) {
       if (!_closed && _wanted) {
-        _gate.reset();
+        _resetPoseGate();
         _update(
           const PostureReadiness(
             false,
@@ -281,13 +321,7 @@ class TrainingCameraController extends ChangeNotifier {
 
   void _reportTrackingLoss(PostureReadiness readiness) {
     onObservation?.call(
-      SquatObservation(
-        timestamp: _clock.elapsed,
-        readiness: readiness,
-        leftKneeAngle: double.nan,
-        rightKneeAngle: double.nan,
-        hipHeight: double.nan,
-      ),
+      TrainingObservation(timestamp: _clock.elapsed, readiness: readiness),
     );
     _update(readiness);
   }
@@ -302,10 +336,15 @@ class TrainingCameraController extends ChangeNotifier {
     _emit();
   }
 
+  void _resetPoseGate() {
+    _gate.reset();
+    _pushUpGate.reset();
+  }
+
   Future<void> _release() async {
     _watchdog?.cancel();
     _watchdog = null;
-    _gate.reset();
+    _resetPoseGate();
     _readiness = const PostureReadiness(
       false,
       false,

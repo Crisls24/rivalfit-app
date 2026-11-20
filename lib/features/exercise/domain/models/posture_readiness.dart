@@ -56,8 +56,8 @@ class PostureReadinessGate {
         'Aléjate hasta que se vean hombros, cadera, rodillas y tobillos.',
       );
     }
-    final leftAngle = kneeAngle(leftLeg, aspectRatio);
-    final rightAngle = kneeAngle(rightLeg, aspectRatio);
+    final leftAngle = jointAngle(leftLeg, aspectRatio);
+    final rightAngle = jointAngle(rightLeg, aspectRatio);
     if (!leftAngle.isFinite ||
         !rightAngle.isFinite ||
         leftAngle < SquatSessionRules.standingAngle ||
@@ -81,14 +81,14 @@ class PostureReadinessGate {
 }
 
 /// Coordinates are normalized; aspect ratio restores metric proportions.
-double kneeAngle(List<BodyPoint> leg, double aspectRatio) {
-  if (leg.length != 3 || !aspectRatio.isFinite || aspectRatio <= 0) {
+double jointAngle(List<BodyPoint> points, double aspectRatio) {
+  if (points.length != 3 || !aspectRatio.isFinite || aspectRatio <= 0) {
     return double.nan;
   }
-  final ax = (leg[0].x - leg[1].x) * aspectRatio;
-  final ay = leg[0].y - leg[1].y;
-  final bx = (leg[2].x - leg[1].x) * aspectRatio;
-  final by = leg[2].y - leg[1].y;
+  final ax = (points[0].x - points[1].x) * aspectRatio;
+  final ay = points[0].y - points[1].y;
+  final bx = (points[2].x - points[1].x) * aspectRatio;
+  final by = points[2].y - points[1].y;
   final length = math.sqrt((ax * ax + ay * ay) * (bx * bx + by * by));
   if (length <= 0) return 0;
   return math.acos(((ax * bx + ay * by) / length).clamp(-1.0, 1.0)) *
