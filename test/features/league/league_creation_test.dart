@@ -11,6 +11,16 @@ import 'package:rivalfit/features/league/presentation/controllers/league_control
 class _Repository extends Mock implements LeagueRepository {}
 
 void main() {
+  final league = League(
+    id: 'league-1',
+    name: 'Los del lunes',
+    code: 'ABC123',
+    ownerId: 'owner',
+    maxMembers: 10,
+    memberCount: 1,
+    createdAt: DateTime.utc(2026),
+  );
+
   test(
     'creation publishes the league and retries optional work separately',
     () async {
@@ -19,15 +29,6 @@ void main() {
       addTearDown(controller.dispose);
       late LeagueState state;
       controller.addListener((value) => state = value);
-      final league = League(
-        id: 'league-1',
-        name: 'Los del lunes',
-        code: 'ABC123',
-        ownerId: 'owner',
-        maxMembers: 10,
-        memberCount: 1,
-        createdAt: DateTime.utc(2026),
-      );
       final photo = Uint8List.fromList([1]);
       final upload = Completer<Failure?>();
       final ranking = Completer<({List<LeagueMember> items, Failure? error})>();
@@ -95,4 +96,48 @@ void main() {
       ).called(1);
     },
   );
+
+  test('confirmation during a ranking request refreshes the points', () async {
+    final repository = _Repository();
+    final controller = LeagueController(repository);
+    addTearDown(controller.dispose);
+    late LeagueState state;
+    controller.addListener((value) => state = value);
+    when(repository.getMyLeague)
+        .thenAnswer((_) async => (league: league, error: null));
+    final stale = Completer<({List<LeagueMember> items, Failure? error})>();
+    final fresh = Completer<({List<LeagueMember> items, Failure? error})>();
+    final requested = Completer<void>();
+    var requests = 0;
+    when(() => repository.getRanking(league.id)).thenAnswer((_) {
+      requests++;
+      if (requests == 1) {
+        requested.complete();
+        return stale.future;
+      }
+      return fresh.future;
+    });
+
+    final loading = controller.load();
+    await requested.future;
+    await controller.loadRanking();
+    await controller.loadRanking();
+    stale.complete((items: <LeagueMember>[], error: null));
+    fresh.complete((
+      items: [
+        LeagueMember(
+          userId: league.ownerId,
+          displayName: 'Dueño',
+          weeklyPoints: 3,
+          joinedAt: league.createdAt,
+        ),
+      ],
+      error: null,
+    ));
+    await loading;
+
+    expect(requests, 2);
+    expect(state.ranking.single.weeklyPoints, 3);
+    expect(state.rankingLoading, isFalse);
+  });
 }

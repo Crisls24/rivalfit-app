@@ -78,6 +78,8 @@ class LeagueState {
 class LeagueController extends StateNotifier<LeagueState> {
   final LeagueRepository _repo;
   ({String leagueId, Uint8List bytes, String fileName})? _pendingPhoto;
+  Object? _rankingRequest;
+  bool _rankingRefreshQueued = false;
 
   LeagueController(this._repo) : super(const LeagueState());
 
@@ -115,15 +117,29 @@ class LeagueController extends StateNotifier<LeagueState> {
 
   Future<void> loadRanking() async {
     final leagueId = state.league?.id;
-    if (leagueId == null || state.rankingLoading) return;
+    if (leagueId == null) return;
+    if (state.rankingLoading) {
+      _rankingRefreshQueued = true;
+      return;
+    }
+    final request = _rankingRequest = Object();
     state = state.copyWith(rankingLoading: true, rankingError: null);
-    final ranking = await _repo.getRanking(leagueId);
-    if (!mounted || state.league?.id != leagueId) return;
-    state = state.copyWith(
-      rankingLoading: false,
-      rankingError: ranking.error?.message,
-      ranking: ranking.error == null ? ranking.items : state.ranking,
-    );
+    do {
+      _rankingRefreshQueued = false;
+      final ranking = await _repo.getRanking(leagueId);
+      if (!mounted ||
+          state.league?.id != leagueId ||
+          !identical(_rankingRequest, request)) {
+        return;
+      }
+      if (_rankingRefreshQueued) continue;
+      state = state.copyWith(
+        rankingLoading: false,
+        rankingError: ranking.error?.message,
+        ranking: ranking.error == null ? ranking.items : state.ranking,
+      );
+      return;
+    } while (true);
   }
 
   Future<void> retryPhoto() async {
