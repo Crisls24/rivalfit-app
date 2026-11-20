@@ -4,6 +4,20 @@ enum TrainingSource { camera, simulation }
 
 enum SessionSyncStatus { notSaved, pending, confirmed, rejected }
 
+enum TrainingMovement {
+  squat(SquatSessionRules.exerciseId, SquatSessionRules.version, 'Sentadillas'),
+  pushUp('lagartijas', 'lagartijas-v1', 'Lagartijas');
+
+  const TrainingMovement(this.id, this.rulesVersion, this.label);
+
+  final String id;
+  final String rulesVersion;
+  final String label;
+
+  static TrainingMovement? forId(String id) =>
+      values.where((movement) => movement.id == id).firstOrNull;
+}
+
 /// Versioned rules shared by the session flow and future persistence adapter.
 /// Thresholds for interpreting posture belong to the calibrated counter.
 abstract final class SquatSessionRules {

@@ -1,9 +1,7 @@
-import 'posture_readiness.dart';
+import 'training_observation.dart';
 
 /// One local detector result. Does not contain images or remote payloads.
-class SquatObservation {
-  final Duration timestamp;
-  final PostureReadiness readiness;
+class SquatObservation extends TrainingObservation {
   final double leftKneeAngle;
   final double rightKneeAngle;
 
@@ -12,8 +10,8 @@ class SquatObservation {
   final double hipHeight;
 
   const SquatObservation({
-    required this.timestamp,
-    required this.readiness,
+    required super.timestamp,
+    required super.readiness,
     required this.leftKneeAngle,
     required this.rightKneeAngle,
     required this.hipHeight,

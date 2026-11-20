@@ -1,11 +1,12 @@
 import '../models/squat_observation.dart';
+import '../models/training_observation.dart';
 import '../models/training_session.dart';
 
 enum SquatPhase { waitingForStart, standing, descending, depthReached }
 
 /// Conservative initial thresholds, pending device calibration. This validates
 /// a visible movement cycle, not complete exercise technique or identity.
-class SquatCounter {
+class SquatCounter implements TrainingRepCounter {
   SquatPhase _phase = SquatPhase.waitingForStart;
   Duration? _lastSample;
   Duration? _topSince;
@@ -14,8 +15,10 @@ class SquatCounter {
   double? _standingHipHeight;
   bool _missedDepth = false;
 
+  @override
   SquatPhase get phase => _phase;
 
+  @override
   String get instruction => switch (_phase) {
     SquatPhase.waitingForStart => 'Ponte de pie y mantén la postura inicial.',
     SquatPhase.standing when _missedDepth =>
@@ -25,6 +28,7 @@ class SquatCounter {
     SquatPhase.depthReached => 'Vuelve a la postura inicial.',
   };
 
+  @override
   void reset() {
     _phase = SquatPhase.waitingForStart;
     _lastSample = null;
@@ -35,6 +39,7 @@ class SquatCounter {
     _missedDepth = false;
   }
 
+  @override
   void arm(SquatObservation sample) {
     reset();
     if (!sample.readiness.initialPostureReady || !usable(sample)) return;
@@ -58,12 +63,18 @@ class SquatCounter {
         (left - right).abs() <= SquatSessionRules.maxLegAngleDifference;
   }
 
+  @override
+  bool isUsable(TrainingObservation sample) =>
+      sample is SquatObservation && usable(sample);
+
+  @override
   void interruptStability() {
     _topSince = null;
     _bottomSince = null;
   }
 
   /// Returns true exactly once for a complete, continuous cycle.
+  @override
   bool observe(SquatObservation sample) {
     final time = sample.timestamp;
     final left = sample.leftKneeAngle;
