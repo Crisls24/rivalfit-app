@@ -15,7 +15,6 @@ import '../widgets/weekly_progress_card.dart';
 
 class TrainingView extends ConsumerWidget {
   static const backgroundColor = Color(0xFFF8F5EF);
-  static const _freeExercise = SquatSessionRules.exerciseId;
 
   final VoidCallback onGoToLeague;
 
@@ -149,12 +148,15 @@ class TrainingView extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  ExerciseCard(
-                    exercise: appExercises.firstWhere(
-                      (e) => e.id == _freeExercise,
+                  for (final movement in TrainingMovement.values) ...[
+                    ExerciseCard(
+                      exercise: appExercises.firstWhere(
+                        (e) => e.id == movement.id,
+                      ),
+                      available: true,
                     ),
-                    available: true,
-                  ),
+                    const SizedBox(height: 8),
+                  ],
                   const SizedBox(height: 14),
                   const Text(
                     'Próximamente',
@@ -181,7 +183,7 @@ class TrainingView extends ConsumerWidget {
                         runSpacing: gap,
                         children: [
                           for (final exercise in appExercises.where(
-                            (e) => e.id != _freeExercise,
+                            (e) => TrainingMovement.forId(e.id) == null,
                           ))
                             SizedBox(
                               width: width,

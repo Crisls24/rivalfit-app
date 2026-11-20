@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
+import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
 
 const _routineName = 'Cuerpo completo';
 const _routineDetails = '8 min · 3 ejercicios';
@@ -14,7 +15,7 @@ class RecommendedRoutineCard extends StatelessWidget {
   const RecommendedRoutineCard({super.key});
 
   Future<void> _showRoutine(BuildContext context) async {
-    final startSquats = await showModalBottomSheet<bool>(
+    final selected = await showModalBottomSheet<TrainingMovement>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -41,23 +42,29 @@ class RecommendedRoutineCard extends StatelessWidget {
                   leading: _PoseIcon(exercise.movement),
                   title: Text(exercise.name),
                   subtitle: Text(
-                    exercise.movement == _Movement.squat
-                        ? exercise.target
-                        : '${exercise.target} · Próximamente',
+                    exercise.movement == _Movement.plank
+                        ? '${exercise.target} · Próximamente'
+                        : exercise.target,
                   ),
                 ),
               const SizedBox(height: 12),
               _RoutineButton(
                 label: 'Empezar sentadillas',
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () =>
+                    Navigator.of(context).pop(TrainingMovement.squat),
+              ),
+              TextButton(
+                onPressed: () =>
+                    Navigator.of(context).pop(TrainingMovement.pushUp),
+                child: const Text('Empezar lagartijas'),
               ),
             ],
           ),
         ),
       ),
     );
-    if (startSquats == true && context.mounted) {
-      context.push('/session');
+    if (selected != null && context.mounted) {
+      context.push('/exercise/${selected.id}');
     }
   }
 

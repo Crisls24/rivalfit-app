@@ -6,6 +6,7 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/app/widgets/app_card.dart';
 
 import '../../domain/models/saved_training_session.dart';
+import '../../domain/models/training_session.dart';
 import '../controllers/training_storage_providers.dart';
 
 /// Recovery stays in Entrenar so pending sessions remain accessible after
@@ -280,7 +281,10 @@ class _SavedTrainingSessionsCardState
 
   String _sessionLabel(SavedTrainingSession record) {
     final reps = record.result.validReps;
-    return 'Sentadillas · $reps ${reps == 1 ? 'repetición' : 'repeticiones'}';
+    final name =
+        TrainingMovement.forId(record.result.exerciseId)?.label ??
+        record.result.exerciseId;
+    return '$name · $reps ${reps == 1 ? 'repetición' : 'repeticiones'}';
   }
 
   String _status(SavedTrainingSession record) => switch (record.state) {
