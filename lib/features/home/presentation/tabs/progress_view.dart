@@ -56,7 +56,10 @@ class ProgressView extends ConsumerWidget {
               Text(
                 '${progress.pendingReps} repeticiones pendientes de sincronizar',
               ),
-            MuscleMapCard(legReps: progress.confirmedReps),
+            MuscleMapCard(
+              legReps: progress.legReps,
+              chestArmReps: progress.chestArmReps,
+            ),
             const SizedBox(height: 24),
             _RankCard(progress: progress),
             const SizedBox(height: 24),

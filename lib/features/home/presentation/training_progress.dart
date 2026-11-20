@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../exercise/domain/models/saved_training_session.dart';
+import '../../exercise/domain/models/training_session.dart';
 import '../../exercise/presentation/controllers/training_storage_providers.dart';
 
 final trainingProgressProvider = Provider.autoDispose(
@@ -21,25 +22,48 @@ class TrainingProgress {
 
   final int confirmedReps;
   final int pendingReps;
+  final int legReps;
+  final int chestArmReps;
 
-  const TrainingProgress(this.confirmedReps, this.pendingReps);
+  const TrainingProgress(
+    this.confirmedReps,
+    this.pendingReps, {
+    this.legReps = 0,
+    this.chestArmReps = 0,
+  });
 
   factory TrainingProgress.fromSessions(List<SavedTrainingSession> sessions) {
-    final confirmed = <String, int>{};
+    final confirmed = <String, TrainingSessionResult>{};
     final pending = <String, int>{};
     for (final session in sessions) {
       final result = session.result;
       if (!result.eligibleForSubmission) continue;
       if (session.state == SavedSessionState.confirmed) {
-        confirmed[result.sessionId] = result.validReps;
+        confirmed[result.sessionId] = result;
       } else if (session.state == SavedSessionState.pending) {
         pending[result.sessionId] = result.validReps;
       }
     }
     pending.removeWhere((id, _) => confirmed.containsKey(id));
+    var legReps = 0;
+    var chestArmReps = 0;
+    var total = 0;
+    for (final result in confirmed.values) {
+      total += result.validReps;
+      switch (TrainingMovement.forId(result.exerciseId)) {
+        case TrainingMovement.squat:
+          legReps += result.validReps;
+        case TrainingMovement.pushUp:
+          chestArmReps += result.validReps;
+        case null:
+          break;
+      }
+    }
     return TrainingProgress(
-      confirmed.values.fold(0, (sum, reps) => sum + reps),
+      total,
       pending.values.fold(0, (sum, reps) => sum + reps),
+      legReps: legReps,
+      chestArmReps: chestArmReps,
     );
   }
 

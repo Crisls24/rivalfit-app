@@ -12,7 +12,8 @@ const _groups = [MuscleGroup.chestArms, MuscleGroup.core, MuscleGroup.legs];
 /// Mapa interactivo de los grupos musculares.
 class MuscleMapCard extends StatefulWidget {
   final int legReps;
-  const MuscleMapCard({super.key, this.legReps = 0});
+  final int chestArmReps;
+  const MuscleMapCard({super.key, this.legReps = 0, this.chestArmReps = 0});
 
   @override
   State<MuscleMapCard> createState() => _MuscleMapCardState();
@@ -107,6 +108,7 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
                                 painter: _MuscleOutline(
                                   _selected,
                                   legsEarned: widget.legReps > 0,
+                                  chestArmsEarned: widget.chestArmReps > 0,
                                 ),
                               ),
                             ),
@@ -121,7 +123,11 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
             const SizedBox(height: 8),
             _MuscleDetail(
               group: _selected,
-              reps: _selected == MuscleGroup.legs ? widget.legReps : 0,
+              reps: switch (_selected) {
+                MuscleGroup.legs => widget.legReps,
+                MuscleGroup.chestArms => widget.chestArmReps,
+                _ => 0,
+              },
             ),
           ],
         ),
@@ -240,17 +246,24 @@ class _MuscleDetail extends StatelessWidget {
 class _MuscleOutline extends CustomPainter {
   final MuscleGroup group;
   final bool legsEarned;
+  final bool chestArmsEarned;
 
-  const _MuscleOutline(this.group, {required this.legsEarned});
+  const _MuscleOutline(
+    this.group, {
+    required this.legsEarned,
+    required this.chestArmsEarned,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (legsEarned) {
+    for (final earned in [
+      if (legsEarned) MuscleGroup.legs,
+      if (chestArmsEarned) MuscleGroup.chestArms,
+    ]) {
       final bronze = ProgressEmblemFinish.bronze;
-      final legs = _scaledRegion(MuscleGroup.legs, size);
-      final bounds = legs.getBounds();
+      final region = _scaledRegion(earned, size);
       canvas.drawPath(
-        legs,
+        region,
         Paint()
           ..shader = LinearGradient(
             begin: Alignment.topCenter,
@@ -260,7 +273,7 @@ class _MuscleOutline extends CustomPainter {
               bronze.midtone.withValues(alpha: 0.57),
               bronze.shadow.withValues(alpha: 0.54),
             ],
-          ).createShader(bounds),
+          ).createShader(region.getBounds()),
       );
     }
     canvas.drawPath(
@@ -275,7 +288,9 @@ class _MuscleOutline extends CustomPainter {
 
   @override
   bool shouldRepaint(_MuscleOutline oldDelegate) =>
-      group != oldDelegate.group || legsEarned != oldDelegate.legsEarned;
+      group != oldDelegate.group ||
+      legsEarned != oldDelegate.legsEarned ||
+      chestArmsEarned != oldDelegate.chestArmsEarned;
 }
 
 Path _scaledRegion(MuscleGroup group, Size size) {
