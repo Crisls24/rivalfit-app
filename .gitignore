@@ -92,3 +92,4 @@ design/
 .fvm/flutter_sdk/
 .fvm/versions/
 !infra/sql/league_weekly_ranking_v1.sql
+!infra/sql/push_up_sessions_v1.sql
