@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/features/exercise/domain/models/saved_training_session.dart';
+import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
 import 'package:rivalfit/features/exercise/presentation/controllers/training_storage_providers.dart';
 import 'package:rivalfit/features/league/domain/models/league.dart';
 
@@ -17,6 +18,17 @@ class LeagueTrainingAction extends ConsumerWidget {
     required this.ranking,
     required this.currentUserId,
   });
+
+  Future<void> _train(
+    BuildContext context,
+    WidgetRef ref,
+    TrainingMovement movement,
+  ) async {
+    await context.push('/exercise/${movement.id}?from=league');
+    if (context.mounted) {
+      await ref.read(leagueControllerProvider.notifier).loadRanking();
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -63,12 +75,7 @@ class LeagueTrainingAction extends ConsumerWidget {
             const SizedBox(height: 8),
           ],
           FilledButton.icon(
-            onPressed: () async {
-              await context.push('/exercise/sentadillas?from=league');
-              if (context.mounted) {
-                await ref.read(leagueControllerProvider.notifier).loadRanking();
-              }
-            },
+            onPressed: () => _train(context, ref, TrainingMovement.squat),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.volt,
               foregroundColor: AppColors.carbon,
@@ -76,6 +83,11 @@ class LeagueTrainingAction extends ConsumerWidget {
             ),
             icon: const Icon(Icons.fitness_center_rounded),
             label: const Text('Entrenar sentadillas'),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton(
+            onPressed: () => _train(context, ref, TrainingMovement.pushUp),
+            child: const Text('Entrenar lagartijas'),
           ),
         ],
       ),
