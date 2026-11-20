@@ -11,6 +11,13 @@
       "type": "promptString",
       "description": "Anon key de tu instancia de Supabase",
       "password": true
+    },
+    {
+      "id": "squatTrace",
+      "type": "pickString",
+      "description": "Traza de sentadillas por cuadro (solo debug)",
+      "options": ["false", "true"],
+      "default": "false"
     }
   ],
   "configurations": [
@@ -21,7 +28,10 @@
       "program": "lib/main.dart",
       "args": [
         "--dart-define=SUPABASE_URL=${input:supabaseUrl}",
-        "--dart-define=SUPABASE_ANON_KEY=${input:supabaseAnonKey}"
+        "--dart-define=SUPABASE_ANON_KEY=${input:supabaseAnonKey}",
+        "--dart-define=TRAINING_SYNC_ENABLED=true",
+        "--dart-define=LEAGUE_WEEKLY_RANKING_ENABLED=true",
+        "--dart-define=SQUAT_TRACE=${input:squatTrace}"
       ]
     }
   ]
