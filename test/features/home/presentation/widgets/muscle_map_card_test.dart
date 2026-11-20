@@ -15,7 +15,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('0 reps verificadas'), findsOneWidget);
+    expect(find.text('0 reps confirmadas'), findsOneWidget);
+    expect(find.text('Sin entrenar'), findsOneWidget);
+    expect(find.text('1 rep para Bronce'), findsOneWidget);
     final body = tester.getRect(find.byType(Image));
     await tester.tapAt(
       body.topLeft + Offset(body.width * 0.5, body.height * 0.34),
@@ -35,5 +37,29 @@ void main() {
     expect(find.text('Piernas'), findsNWidgets(2));
     expect(find.byType(OutlinedButton), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the first confirmed leg rep unlocks Bronze only for legs', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(child: MuscleMapCard(legReps: 1)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1 reps confirmadas'), findsOneWidget);
+    expect(find.text('Bronce'), findsOneWidget);
+    expect(find.text('Bronce alcanzado'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Abdomen'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 reps confirmadas'), findsOneWidget);
+    expect(find.text('Sin entrenar'), findsOneWidget);
+    expect(find.text('Bronce'), findsNothing);
   });
 }

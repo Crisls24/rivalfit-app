@@ -11,7 +11,8 @@ const _groups = [MuscleGroup.chestArms, MuscleGroup.core, MuscleGroup.legs];
 
 /// Mapa interactivo de los grupos musculares.
 class MuscleMapCard extends StatefulWidget {
-  const MuscleMapCard({super.key});
+  final int legReps;
+  const MuscleMapCard({super.key, this.legReps = 0});
 
   @override
   State<MuscleMapCard> createState() => _MuscleMapCardState();
@@ -103,7 +104,10 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
                             const _MuscleBody(),
                             RepaintBoundary(
                               child: CustomPaint(
-                                painter: _MuscleOutline(_selected),
+                                painter: _MuscleOutline(
+                                  _selected,
+                                  legsEarned: widget.legReps > 0,
+                                ),
                               ),
                             ),
                           ],
@@ -115,7 +119,10 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
               ),
             ),
             const SizedBox(height: 8),
-            _MuscleDetail(group: _selected),
+            _MuscleDetail(
+              group: _selected,
+              reps: _selected == MuscleGroup.legs ? widget.legReps : 0,
+            ),
           ],
         ),
       ),
@@ -150,7 +157,8 @@ class _MuscleBody extends StatelessWidget {
 class _MuscleDetail extends StatelessWidget {
   final MuscleGroup group;
 
-  const _MuscleDetail({required this.group});
+  final int reps;
+  const _MuscleDetail({required this.group, required this.reps});
 
   @override
   Widget build(BuildContext context) {
@@ -165,9 +173,11 @@ class _MuscleDetail extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const ProgressEmblem(
-              icon: Icons.star_outline_rounded,
-              finish: ProgressEmblemFinish.steel,
+            ProgressEmblem(
+              icon: reps > 0 ? Icons.star_rounded : Icons.star_outline_rounded,
+              finish: reps > 0
+                  ? ProgressEmblemFinish.bronze
+                  : ProgressEmblemFinish.steel,
               size: 40,
             ),
             const SizedBox(width: 10),
@@ -183,9 +193,14 @@ class _MuscleDetail extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const Text(
-                    'Sin entrenar',
-                    style: TextStyle(color: AppColors.textGray, fontSize: 12),
+                  Text(
+                    reps == 0 ? 'Sin entrenar' : 'Bronce',
+                    style: TextStyle(
+                      color: reps > 0
+                          ? ProgressEmblemFinish.bronze.highlight
+                          : AppColors.textGray,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -195,21 +210,21 @@ class _MuscleDetail extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '0 reps verificadas',
+                  Text(
+                    '$reps reps confirmadas',
                     style: TextStyle(color: Colors.white, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   LinearProgressIndicator(
-                    value: 0,
+                    value: reps == 0 ? 0 : 1,
                     minHeight: 6,
                     borderRadius: BorderRadius.circular(8),
                     color: AppColors.volt,
                     backgroundColor: AppColors.glassBorder,
                   ),
                   const SizedBox(height: 5),
-                  const Text(
-                    '1 rep para Bronce',
+                  Text(
+                    reps == 0 ? '1 rep para Bronce' : 'Bronce alcanzado',
                     style: TextStyle(color: AppColors.textGray, fontSize: 11),
                   ),
                 ],
@@ -224,11 +239,30 @@ class _MuscleDetail extends StatelessWidget {
 
 class _MuscleOutline extends CustomPainter {
   final MuscleGroup group;
+  final bool legsEarned;
 
-  const _MuscleOutline(this.group);
+  const _MuscleOutline(this.group, {required this.legsEarned});
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (legsEarned) {
+      final bronze = ProgressEmblemFinish.bronze;
+      final legs = _scaledRegion(MuscleGroup.legs, size);
+      final bounds = legs.getBounds();
+      canvas.drawPath(
+        legs,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              bronze.highlight.withValues(alpha: 0.59),
+              bronze.midtone.withValues(alpha: 0.57),
+              bronze.shadow.withValues(alpha: 0.54),
+            ],
+          ).createShader(bounds),
+      );
+    }
     canvas.drawPath(
       _scaledRegion(group, size),
       Paint()
@@ -240,7 +274,8 @@ class _MuscleOutline extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_MuscleOutline oldDelegate) => group != oldDelegate.group;
+  bool shouldRepaint(_MuscleOutline oldDelegate) =>
+      group != oldDelegate.group || legsEarned != oldDelegate.legsEarned;
 }
 
 Path _scaledRegion(MuscleGroup group, Size size) {
