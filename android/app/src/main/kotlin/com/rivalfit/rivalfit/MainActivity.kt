@@ -19,6 +19,7 @@ class MainActivity : FlutterActivity() {
         trainingChannel?.setMethodCallHandler { call, result ->
             val cue = when (call.method) {
                 "start" -> ToneGenerator.TONE_PROP_ACK to 180
+                "ready" -> ToneGenerator.TONE_PROP_BEEP2 to 110
                 "rep" -> ToneGenerator.TONE_PROP_BEEP to 90
                 "lost" -> ToneGenerator.TONE_PROP_NACK to 240
                 else -> null

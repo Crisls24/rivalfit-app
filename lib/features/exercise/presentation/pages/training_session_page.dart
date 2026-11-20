@@ -9,16 +9,23 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 
 import '../controllers/training_session_controller.dart';
 import '../controllers/training_camera_controller.dart';
+import '../widgets/training_setup_guide.dart';
 import '../widgets/training_camera_panel.dart';
 import '../controllers/training_storage_providers.dart';
 import '../../data/repositories/training_session_repository.dart';
 import '../../domain/models/saved_training_session.dart';
+import '../../domain/models/training_session.dart';
 
 /// Guided Android squat session with a live camera preview.
 class TrainingSessionPage extends ConsumerStatefulWidget {
   final bool fromLeague;
+  final TrainingMovement movement;
 
-  const TrainingSessionPage({super.key, this.fromLeague = false});
+  const TrainingSessionPage({
+    super.key,
+    this.fromLeague = false,
+    this.movement = TrainingMovement.squat,
+  });
 
   @override
   ConsumerState<TrainingSessionPage> createState() =>
@@ -27,7 +34,7 @@ class TrainingSessionPage extends ConsumerStatefulWidget {
 
 class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     with WidgetsBindingObserver {
-  final _session = TrainingSessionController();
+  late final _session = TrainingSessionController(movement: widget.movement);
   late final TrainingCameraController _camera;
   TrainingPhase _previousPhase = TrainingPhase.preparation;
   bool _exitDialogOpen = false;
@@ -39,23 +46,27 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
   bool _discarding = false;
   String? _storageError;
   final _preferences = SharedPreferencesAsync();
-  static const _guideKey = 'training.squat.guideSeen';
+  String get _guideKey => 'training.${widget.movement.name}.visualGuideSeen';
+  String get _guideLabel =>
+      'Ver guía de ${widget.movement.label.toLowerCase()}';
   static const _audioKey = 'training.audioEnabled';
   static const _audioChannel = MethodChannel('rivalfit/training_audio');
   bool _cameraRequested = false;
-  bool _showGuide = true;
+  bool? _showGuide;
   bool _audioEnabled = true;
   bool _foreground = true;
   bool _autoStart = true;
   Timer? _countdown;
   int? _seconds;
   int _previousReps = 0;
+  Timer? _repFeedbackTimer;
 
   @override
   void initState() {
     super.initState();
     _camera = TrainingCameraController(
       onObservation: _session.processObservation,
+      movement: widget.movement,
     );
     WidgetsBinding.instance.addObserver(this);
     _session.addListener(_onSessionChanged);
@@ -77,8 +88,18 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
         if (!_cameraRequested) _showGuide = !seen;
       });
     } on Exception {
-      // Preferences are optional for the training flow.
+      if (mounted && _showGuide == null) setState(() => _showGuide = true);
     }
+  }
+
+  void _showSetupGuide() {
+    _cancelCountdown();
+    setState(() {
+      _cameraRequested = false;
+      _showGuide = true;
+    });
+    _session.updatePosture(ready: false);
+    unawaited(_camera.deactivate());
   }
 
   void _openCamera() {
@@ -137,6 +158,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     }
     if (_countdown != null) return;
     setState(() => _seconds = 3);
+    unawaited(_playCue('ready'));
     _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_canStart) {
         _cancelCountdown();
@@ -145,6 +167,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
         _session.start();
       } else {
         setState(() => _seconds = _seconds! - 1);
+        unawaited(_playCue('ready'));
       }
     });
   }
@@ -209,6 +232,19 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     return _saveChain;
   }
 
+  Future<void> _retrySessionSync() async {
+    try {
+      await _repository?.sync(force: true);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo reintentar la sincronización.'),
+        ),
+      );
+    }
+  }
+
   void _onCameraChanged() {
     if (_camera.status == TrainingCameraStatus.ready) {
       _refreshCountdown();
@@ -219,14 +255,24 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
 
   void _onSessionChanged() {
     _refreshCountdown();
-    if (_session.reps > _previousReps) unawaited(_playCue('rep'));
-    _previousReps = _session.reps;
     final phase = _session.phase;
+    if (phase != TrainingPhase.active) {
+      _repFeedbackTimer?.cancel();
+      _repFeedbackTimer = null;
+    } else if (_session.reps > _previousReps) {
+      _repFeedbackTimer?.cancel();
+      _repFeedbackTimer = Timer(const Duration(milliseconds: 650), () {
+        if (mounted) setState(() => _repFeedbackTimer = null);
+      });
+      unawaited(_playCue('rep'));
+    }
+    _previousReps = _session.reps;
     if (_previousPhase != phase) {
       final previous = _previousPhase;
       _previousPhase = phase;
-      if (previous == TrainingPhase.preparation &&
-          phase == TrainingPhase.active) {
+      if (phase == TrainingPhase.active &&
+          (previous == TrainingPhase.preparation ||
+              previous == TrainingPhase.recovering)) {
         unawaited(_playCue('start'));
       } else if (previous == TrainingPhase.active &&
           phase == TrainingPhase.recovering) {
@@ -268,6 +314,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     WidgetsBinding.instance.removeObserver(this);
     _checkpointTimer?.cancel();
     _countdown?.cancel();
+    _repFeedbackTimer?.cancel();
     _session.removeListener(_onSessionChanged);
     _camera.removeListener(_onCameraChanged);
     _camera.dispose();
@@ -413,8 +460,14 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                   onPressed: _requestExit,
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
-                title: const Text('Sentadillas'),
+                title: Text(widget.movement.label),
                 actions: [
+                  if (phase == TrainingPhase.preparation && _cameraRequested)
+                    IconButton(
+                      tooltip: _guideLabel,
+                      icon: const Icon(Icons.help_outline_rounded),
+                      onPressed: _showSetupGuide,
+                    ),
                   if (!finished)
                     IconButton(
                       tooltip: _audioEnabled
@@ -437,6 +490,8 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                   : SafeArea(
                       child: _cameraRequested
                           ? _cameraStage(phase)
+                          : _showGuide == null
+                          ? const Center(child: CircularProgressIndicator())
                           : SingleChildScrollView(
                               padding: const EdgeInsets.fromLTRB(
                                 24,
@@ -466,28 +521,15 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Antes de empezar',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
+            if (_showGuide == true)
+              TrainingSetupGuide(movement: widget.movement)
+            else
+              Text(
+                widget.movement == TrainingMovement.squat
+                    ? 'Ponte de pie dentro del encuadre para iniciar la cuenta regresiva.'
+                    : 'Mira hacia el celular en posición de plancha, con los brazos extendidos.',
+                style: const TextStyle(color: Colors.white, fontSize: 17),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _showGuide
-                  ? 'Apoya el celular y aléjate hasta que se vean tu cabeza y tus pies.'
-                  : 'La serie empieza cuando estés de pie dentro del encuadre.',
-              style: const TextStyle(color: Colors.white, height: 1.4),
-            ),
-            if (_showGuide) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Gira un poco de lado. Tras la cuenta regresiva, baja y vuelve a ponerte de pie.',
-                style: TextStyle(color: Colors.white, height: 1.4),
-              ),
-            ],
             const SizedBox(height: 14),
             const Text(
               'La cámara cuenta repeticiones en tu teléfono. El video no se graba ni se envía.',
@@ -498,11 +540,8 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
       ),
       const SizedBox(height: 12),
       _primary('Activar cámara', _openCamera),
-      if (!_showGuide)
-        TextButton(
-          onPressed: () => setState(() => _showGuide = true),
-          child: const Text('Ver cómo colocar el celular'),
-        ),
+      if (_showGuide == false)
+        TextButton(onPressed: _showSetupGuide, child: Text(_guideLabel)),
     ],
   );
 
@@ -541,31 +580,24 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
   Widget _sessionControls(TrainingPhase phase) {
     final preparation = phase == TrainingPhase.preparation;
     final paused = phase == TrainingPhase.paused;
-    final status = _camera.status;
-    final cameraLive = status == TrainingCameraStatus.ready && !paused;
-    final cameraLabel = switch (status) {
-      TrainingCameraStatus.ready ||
-      TrainingCameraStatus.loading when paused => 'Apagando cámara…',
-      TrainingCameraStatus.ready => 'Cámara activa',
-      TrainingCameraStatus.loading => 'Activando cámara…',
-      TrainingCameraStatus.idle => 'Cámara apagada',
-      _ => 'Cámara no disponible',
-    };
+    final cameraLive = _camera.status == TrainingCameraStatus.ready && !paused;
     final String? instruction = switch (phase) {
-      TrainingPhase.paused => 'Continúa cuando estés listo.',
-      TrainingPhase.preparation when _seconds != null =>
-        'Prepárate para empezar.',
-      TrainingPhase.preparation when cameraLive && !_autoStart =>
-        'Inicio en pausa.',
+      _ when !cameraLive => null,
+      TrainingPhase.preparation when _seconds != null => null,
+      TrainingPhase.preparation when !_autoStart => 'Inicio en pausa.',
       TrainingPhase.preparation
-          when cameraLive &&
-              _repository == null &&
+          when _repository == null &&
               _storageError == null &&
               _session.postureReady =>
-        'Preparando la sesión…',
-      _ when cameraLive => _session.feedback,
-      _ => null,
+        'Preparando la sesión.',
+      _ => _session.feedback,
     };
+    if (preparation &&
+        instruction == null &&
+        _seconds == null &&
+        _storageError == null) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -580,6 +612,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
             children: [
               if (!preparation) ...[
                 Flexible(
+                  flex: 2,
                   child: Semantics(
                     label: '${_session.reps} repeticiones',
                     excludeSemantics: true,
@@ -589,7 +622,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                         '${_session.reps}',
                         style: const TextStyle(
                           color: AppColors.volt,
-                          fontSize: 64,
+                          fontSize: 88,
                           height: 1,
                           fontWeight: FontWeight.w900,
                         ),
@@ -605,25 +638,33 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (!preparation)
-                      const Text(
-                        'Repeticiones',
-                        style: TextStyle(color: Colors.white70),
+                      Semantics(
+                        liveRegion: _repFeedbackTimer != null,
+                        child: Text(
+                          _repFeedbackTimer != null
+                              ? '✓ Repetición válida'
+                              : 'Repeticiones',
+                          style: TextStyle(
+                            color: _repFeedbackTimer != null
+                                ? AppColors.volt
+                                : Colors.white70,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     if (instruction != null)
                       Text(
                         instruction,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color:
+                              phase == TrainingPhase.recovering ||
+                                  instruction == 'Fuera de cuadro'
+                              ? AppColors.volt
+                              : Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                    Text(
-                      cameraLabel,
-                      style: TextStyle(
-                        color: cameraLive ? AppColors.volt : Colors.white70,
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -693,6 +734,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     builder: (context, _) {
       final saving = _queuedWrites > 0;
       final error = _storageError;
+      final syncing = _repository?.syncing ?? false;
       final status = switch (record?.state) {
         _ when saving => 'Guardando sesión…',
         _ when error != null => error,
@@ -700,7 +742,11 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
         SavedSessionState.confirmed => 'Sesión sincronizada',
         SavedSessionState.rejected =>
           record?.error ?? 'No se pudo acreditar la sesión.',
-        _ => 'Guardada en el teléfono. Pendiente de sincronizar.',
+        SavedSessionState.pending when syncing =>
+          'Guardada en el teléfono. Sincronizando…',
+        SavedSessionState.pending =>
+          'Guardada en el teléfono. Pendiente de sincronizar.',
+        _ => 'Comprobando el guardado de la sesión…',
       };
 
       return ColoredBox(
@@ -730,6 +776,13 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                           fontWeight: FontWeight.w800,
                         ),
                       ),
+                      if (_session.endedAfterTrackingLoss) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Pasaron 10 segundos sin poder seguir tu postura.',
+                          style: TextStyle(color: AppColors.grayMain),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       _resultMetrics(),
                       const SizedBox(height: 12),
@@ -744,6 +797,14 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                         ),
                       if (record?.state == SavedSessionState.confirmed)
                         _LeaguePoints(sessionId: record!.result.sessionId),
+                      if (!saving &&
+                          error == null &&
+                          record?.state == SavedSessionState.pending &&
+                          _repository?.remote.enabled == true)
+                        TextButton(
+                          onPressed: syncing ? null : _retrySessionSync,
+                          child: const Text('Reintentar sincronización'),
+                        ),
                       const SizedBox(height: 16),
                       if (error != null && !saving)
                         _primary('Reintentar guardado', _saveSnapshot)

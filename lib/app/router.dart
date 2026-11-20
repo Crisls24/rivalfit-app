@@ -10,6 +10,7 @@ import 'package:rivalfit/features/auth/presentation/pages/login_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/onboarding_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/recover_access_page.dart';
 import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
+import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
 import 'package:rivalfit/features/exercise/presentation/pages/coming_soon_page.dart';
 import 'package:rivalfit/features/exercise/presentation/pages/training_session_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
@@ -37,8 +38,9 @@ final oauthPendingProvider = Provider<bool>((ref) => false);
 ///
 /// * Cualquier otra cosa (null, join, reset, arranque normal): /onboarding.
 String initialRouteFor(Uri? initialLink, {required bool oauthPending}) {
-  final action =
-      initialLink == null ? null : const DeepLinkParser().parse(initialLink);
+  final action = initialLink == null
+      ? null
+      : const DeepLinkParser().parse(initialLink);
   if (action?.kind == DeepLinkKind.loginCallback || oauthPending) {
     return '/login';
   }
@@ -82,10 +84,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final recoveryStep = ref.read(recoveryControllerProvider).step;
       final auth = ref.read(authControllerProvider);
-      final result = _resolveRedirect(auth, state.matchedLocation, recoveryStep);
+      final result = _resolveRedirect(
+        auth,
+        state.matchedLocation,
+        recoveryStep,
+      );
       // ignore: avoid_print
       print(
-          '[redirect] loc=${state.matchedLocation} status=${auth.status} -> ${result ?? "null"}');
+        '[redirect] loc=${state.matchedLocation} status=${auth.status} -> ${result ?? "null"}',
+      );
       return result;
     },
     routes: [
@@ -146,9 +153,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'exercise',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? 'ejercicio';
-          if (id == 'sentadillas') {
+          final movement = TrainingMovement.forId(id);
+          if (movement != null) {
             return TrainingSessionPage(
+              key: ValueKey(movement),
               fromLeague: state.uri.queryParameters['from'] == 'league',
+              movement: movement,
             );
           }
           final title = id[0].toUpperCase() + id.substring(1);
@@ -236,20 +246,25 @@ class _RouteObservingObserver extends NavigatorObserver {
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
     // ignore: avoid_print
-    print('[route] ${DateTime.now().millisecondsSinceEpoch} push ${route.settings.name}');
+    print(
+      '[route] ${DateTime.now().millisecondsSinceEpoch} push ${route.settings.name}',
+    );
   }
 
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     // ignore: avoid_print
     print(
-        '[route] ${DateTime.now().millisecondsSinceEpoch} replace ${newRoute?.settings.name} (was ${oldRoute?.settings.name})');
+      '[route] ${DateTime.now().millisecondsSinceEpoch} replace ${newRoute?.settings.name} (was ${oldRoute?.settings.name})',
+    );
   }
 
   @override
   void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
     // ignore: avoid_print
-    print('[route] ${DateTime.now().millisecondsSinceEpoch} pop ${route.settings.name}');
+    print(
+      '[route] ${DateTime.now().millisecondsSinceEpoch} pop ${route.settings.name}',
+    );
   }
 }
 
@@ -274,8 +289,7 @@ class _RouteErrorPageState extends ConsumerState<_RouteErrorPage> {
       if (!mounted) return;
       final auth = ref.read(authControllerProvider);
       final step = ref.read(recoveryControllerProvider).step;
-      final destination =
-          _resolveRedirect(auth, '/login', step) ?? '/login';
+      final destination = _resolveRedirect(auth, '/login', step) ?? '/login';
       context.go(destination);
     });
   }
