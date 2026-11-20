@@ -16,6 +16,7 @@ class TrainingSessionRepository {
   List<SavedTrainingSession> _records = [];
   Future<void>? _loading;
   bool _syncing = false;
+  bool _historyRestored = false;
   bool _closed = false;
   Timer? _timer;
 
@@ -98,14 +99,16 @@ class TrainingSessionRepository {
   }
 
   Future<void> sync({bool force = false}) async {
-    if (_syncing || !_ownsAccount || !remote.enabled) return;
+    if (_syncing || !_ownsAccount || (!remote.enabled && _historyRestored)) {
+      return;
+    }
     _syncing = true;
     _emit();
     try {
       await load();
-      final pending = _records
-          .where((r) => r.state == SavedSessionState.pending)
-          .toList();
+      final pending = remote.enabled
+          ? _records.where((r) => r.state == SavedSessionState.pending).toList()
+          : const <SavedTrainingSession>[];
       for (final record in pending) {
         if (!_ownsAccount) return;
         if (!force &&
@@ -144,9 +147,50 @@ class TrainingSessionRepository {
         await store.save(response);
         await _refresh();
       }
+      if (!_historyRestored && _ownsAccount) {
+        await _restoreHistory();
+      }
     } finally {
       _syncing = false;
       _emit();
+    }
+  }
+
+  Future<void> _restoreHistory() async {
+    final List<SavedTrainingSession> history;
+    try {
+      history = await remote.fetchHistory(store.ownerId);
+    } catch (_) {
+      // Keep opening offline and retry the download on the next sync.
+      return;
+    }
+    final local = {
+      for (final record in _records) record.result.sessionId: record,
+    };
+    var saved = false;
+    try {
+      for (final record in history) {
+        if (!_ownsAccount) return;
+        if (record.ownerId != store.ownerId ||
+            record.state != SavedSessionState.confirmed) {
+          continue;
+        }
+        final existing = local[record.result.sessionId];
+        if (existing?.state == SavedSessionState.confirmed ||
+            existing?.state == SavedSessionState.rejected) {
+          continue;
+        }
+        if (existing?.state == SavedSessionState.pending &&
+            jsonEncode(existing!.result.toJson()) !=
+                jsonEncode(record.result.toJson())) {
+          continue;
+        }
+        await store.save(record);
+        saved = true;
+      }
+      _historyRestored = _ownsAccount;
+    } finally {
+      if (saved && _ownsAccount) await _refresh();
     }
   }
 

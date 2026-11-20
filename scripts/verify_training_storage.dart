@@ -17,13 +17,22 @@ class FakeRemote implements TrainingSessionRemote {
   @override
   bool enabled = true;
   final stored = <String>{};
+  final history = <SavedTrainingSession>[];
   int calls = 0;
   bool loseNextResponse = false;
   bool reject = false;
+  bool offline = false;
+
+  @override
+  Future<List<SavedTrainingSession>> fetchHistory(String ownerId) async {
+    if (offline) throw const SocketException('No connection');
+    return history;
+  }
 
   @override
   Future<void> submit(SavedTrainingSession session) async {
     calls++;
+    if (offline) throw const SocketException('No connection');
     if (reject) throw const TrainingSessionRejected();
     stored.add(session.result.sessionId);
     if (loseNextResponse) {
@@ -121,6 +130,67 @@ Future<void> main() async {
     );
     check(remote.calls == 2, 'Duplicate finalization sent another request');
 
+    final savedBeforeReinstall = restored.records.single;
+    final cloudOnly = FakeRemote()..enabled = false;
+    cloudOnly.history.add(savedBeforeReinstall);
+    final newInstall = repository(
+      TrainingSessionFileStore(
+        root: Directory('${root.path}/new-install'),
+        ownerId: owner,
+      ),
+      cloudOnly,
+    );
+    await newInstall.load();
+    check(newInstall.records.isEmpty, 'A new installation should start empty');
+    cloudOnly.offline = true;
+    await newInstall.sync();
+    check(newInstall.records.isEmpty, 'Offline startup must remain usable');
+    cloudOnly.offline = false;
+    await newInstall.sync();
+    await newInstall.sync();
+    check(
+      newInstall.records.single.state == SavedSessionState.confirmed &&
+          newInstall.records.single.result.sessionId == workout.sessionId &&
+          newInstall.records.single.result.validReps == workout.validReps &&
+          cloudOnly.calls == 0,
+      'Reinstall did not restore the confirmed result exactly once',
+    );
+
+    final reconnectRemote = FakeRemote()..offline = true;
+    final reconnectStore = TrainingSessionFileStore(
+      root: Directory('${root.path}/reconnect'),
+      ownerId: owner,
+    );
+    final offlineWorkout = result();
+    final withoutNetwork = repository(reconnectStore, reconnectRemote);
+    await withoutNetwork.complete(offlineWorkout);
+    await idle(withoutNetwork);
+    check(
+      reconnectRemote.calls == 1 &&
+          reconnectRemote.stored.isEmpty &&
+          withoutNetwork.records.single.state == SavedSessionState.pending,
+      'Offline submission did not stay pending',
+    );
+    withoutNetwork.dispose();
+    final reopened = repository(reconnectStore, reconnectRemote);
+    await reopened.load();
+    check(
+      reopened.records.single.state == SavedSessionState.pending &&
+          reopened.records.single.result.sessionId == offlineWorkout.sessionId,
+      'Offline result was lost or changed after reopening',
+    );
+    reconnectRemote.offline = false;
+    await reopened.sync(force: true);
+    await reopened.sync(force: true);
+    check(
+      reopened.records.single.state == SavedSessionState.confirmed &&
+          reopened.records.single.result.validReps ==
+              offlineWorkout.validReps &&
+          reconnectRemote.stored.single == offlineWorkout.sessionId &&
+          reconnectRemote.calls == 2,
+      'Reconnection did not confirm the original result exactly once',
+    );
+
     final otherStore = TrainingSessionFileStore(
       root: root,
       ownerId: 'account-b',
@@ -193,7 +263,7 @@ Future<void> main() async {
     }
     check(failed, 'Storage errors were hidden');
     stdout.writeln(
-      'OK: restart, microseconds, lost response, backoff, duplicate completion, account isolation, rejection, backup, simulation and disk errors.',
+      'OK: restart, offline reopen and reconnect, microseconds, lost response, backoff, duplicate completion, account isolation, rejection, backup, simulation and disk errors.',
     );
   } finally {
     for (final repository in repositories) {
