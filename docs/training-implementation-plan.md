@@ -86,7 +86,7 @@ La detección local no constituye por sí sola una prueba contra manipulación. 
 ### Dependencias que deben resolverse antes de publicar la integración
 
 1. Obtener el esquema real de sesiones, usuarios, políticas RLS y mecanismos actuales de puntos para escribir una migración compatible. No ejecutar SQL deducido del PRD.
-2. Fijar una zona horaria común por Liga y un cierre semanal inequívoco. Propuesta: lunes a las 00:00 en la zona de la Liga, conservando resultados de semanas anteriores.
+2. Usar un corte semanal común para todas las ligas, el lunes a las 00:00 en la zona `America/Mexico_City`.
 3. Definir la pertenencia aplicable a una sesión: el servidor debe impedir que cambiar de Liga o sincronizar tarde duplique la acreditación. Una sesión pendiente nunca se asigna automáticamente a la nueva Liga del usuario.
 4. Definir el tratamiento de sincronizaciones tardías antes de publicar ganadores semanales. La hora enviada por el teléfono no es una fuente fiable por sí sola.
 5. Centralizar umbrales de rangos y condiciones de trofeos antes de la entrega 6. No inventar nuevos umbrales desde los widgets.
@@ -208,7 +208,7 @@ Las interfaces concretas y la ubicación de clases se ajustarán a los patrones 
 | Motor de postura | Evaluar compatibilidad, latencia y tamaño en el dispositivo antes de fijar dependencia. | Entrega 3 |
 | Umbrales y estabilidad de postura | Calibrar con ciclos válidos, parciales y pérdida de articulaciones; versionar reglas. | Entrega 4 |
 | Esquema y RPC de sesiones | Inspeccionar backend real y preparar migración revisable. | Entrega 5 |
-| Cierre y zona semanal | Lunes 00:00 en zona común de Liga; requiere confirmación de producto. | Entrega 6 |
+| Cierre y zona semanal | Lunes a las 00:00 en `America/Mexico_City` (confirmado). | Entrega 6 |
 | Pertenencia y envíos tardíos | Validar contexto original; no transferir puntos entre ligas; fijar política de cierre. | Entrega 6 |
 | Rangos e insignias | Unificar reglas existentes; conservar sorpresa de trofeos no obtenidos. | Entrega 6 |
 
@@ -329,8 +329,14 @@ Pendiente para cerrar la entrega: probar cierre/reapertura en Android y comproba
 ## Entrega 6 · Ranking semanal
 
 Aplicar training_sessions_v1.sql y después league_weekly_ranking_v1.sql.
-Arrancar Android con TRAINING_SYNC_ENABLED=true y LEAGUE_WEEKLY_RANKING_ENABLED=true mediante --dart-define.
+La configuración «RivalFit (Supabase local)» de VS Code y el script local `scripts/dev.ps1` arrancan con `TRAINING_SYNC_ENABLED=true` y `LEAGUE_WEEKLY_RANKING_ENABLED=true`.
+
+La traza `SQUAT_TRACE` está desactivada por defecto. Para diagnosticar el conteo en debug, elige `true` al iniciar desde VS Code o agrega `-SquatTrace` al ejecutar el script. Para medir rendimiento, deja la traza desactivada.
 
 El servidor asigna puntos cuando existe una sola membresía vigente, registrada antes del inicio declarado, y la sesión llega dentro de la misma semana. El corte es el lunes a las 00:00 en Ciudad de México. Las sesiones anteriores a la activación, fuera de plazo o con pertenencia ambigua solo aportan al progreso personal. Salir o volver a entrar no transfiere puntos a la nueva membresía. El ranking agrega las sesiones por identificador y semana.
 
+Para validar la acreditación en Android, iniciar con una cuenta que ya pertenezca a la liga. Terminar una serie sin conexión y volver a abrir la app con la misma cuenta. En la lista de sesiones debe quedar pendiente. Al reconectar, esperar el reintento automático o pulsar «Reintentar sincronización». Comprobar que Progreso suma las repeticiones una vez y muestra Bronce en piernas, y que el ranking de Liga solo añade los puntos de esa sesión una vez si llegó dentro de su semana. Una serie guardada al cierre de la semana y recibida en la siguiente solo suma a Progreso.
+
 La hora de inicio procede del teléfono. La comprobación de membresía limita la atribución, pero no certifica independientemente cuándo ocurrió el ejercicio.
+
+Al abrir la app con una cuenta, el repositorio restaura las sesiones confirmadas de esa cuenta desde Supabase y las conserva en el teléfono para consultar Progreso sin conexión. Mantiene el identificador original en la restauración. Las sesiones que quedaron únicamente en el teléfono requieren sincronizarse antes de desinstalar.
