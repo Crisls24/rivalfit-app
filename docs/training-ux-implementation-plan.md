@@ -28,3 +28,9 @@ La primera apertura muestra la guía visual antes de solicitar la cámara. En vi
 - Al terminar, mostrar el número de repeticiones, el estado de sincronización y los puntos que el servidor haya acreditado. Refrescar el ranking al regresar y verificar que reenviar la misma sesión conserve el total. Si falla la conexión, mantener la sesión pendiente y comunicarlo.
 - En Android, probar permiso inicial, entrada recurrente de un toque, lectura del contador y avisos desde el encuadre real, pausa y recuperación, guardado y ranking. Medir tiempo desde tocar Entrenar hasta poder empezar, cuánto tarda en verse una repetición y cuántos ciclos se pierden en un conjunto anotado de movimientos.
 - Criterio inicial de beta: contar al menos 9 de 10 sentadillas completas en el encuadre publicado, sin sumar parciales ni duplicar ciclos en esa prueba. Ampliar la muestra antes de afirmar precisión general.
+
+## Entrega 4 del plan Android · Lagartijas
+
+- Abrir Lagartijas desde Ejercicios libres o Liga. La guía muestra el celular enfrente y un poco a un lado, para mantener visible la pantalla y dejar suficiente perfil al detector. La cuenta regresiva emite avisos con el sonido activado.
+- Probar diez lagartijas completas, cinco parciales, una pérdida de encuadre a mitad del descenso y una pausa manual. Anotar la distancia, la iluminación y la fase del conteo. La traza de debug `SQUAT_TRACE` incluye las líneas `[pushup]`. Los ángulos proyectados son umbrales iniciales del detector.
+- Aplicar `infra/sql/push_up_sessions_v1.sql` después de las migraciones de sesiones y ranking. Comprobar en una cuenta de Liga que una misma serie acreditada aparezca en Pecho y brazos y se sume una sola vez en el ranking. Repetir una serie de sentadillas como regresión.
