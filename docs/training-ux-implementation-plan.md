@@ -9,6 +9,9 @@ Objetivo: que alguien pueda abrir Sentadillas desde Liga, entender en segundos c
 - Separar seguimiento de postura inicial. Durante el descenso se necesitan articulaciones visibles y una secuencia válida. La pérdida breve y la pérdida sostenida deben tener comportamiento definido. Una interrupción sostenida invalida el ciclo parcial.
 - Comparar encuadre frontal y oblicuo con el teléfono en el piso. Ver si fallan la visibilidad de ambas piernas, el ángulo proyectado o la separación temporal. Si se admite trabajar con un lado visible, mantener ese lado durante todo el ciclo y comprobar el impacto en falsos positivos.
 - Probar ciclos completos, descensos parciales, pausa, pérdida de seguimiento y regreso. Un ciclo completo suma una vez y un parcial no suma.
+- Cuando se pierde el seguimiento durante 10 segundos seguidos, terminar la serie y conservar las repeticiones válidas. Recuperar una observación utilizable cancela el plazo y el conteo espera la postura inicial. La pausa manual cancela el plazo y espera a que el usuario toque Continuar.
+- Para validar en Android, anotar modelo del teléfono, orientación, distancia y luz. Probar diez repeticiones completas y cinco parciales por encuadre, una salida breve y otra de diez segundos, y una pausa manual de más de diez segundos. Asociar cada intento con la fase y el motivo que aparezcan en `SQUAT_TRACE`.
+- Para medir rendimiento, usar una compilación profile con la traza apagada. En DevTools, medir la duración y la frecuencia de los eventos `Squat pose`. Registrar por separado el tiempo desde que la persona termina una repetición hasta que ve cambiar el contador.
 
 ## Entrega 7B · Entrenar con el teléfono en el piso
 
@@ -16,6 +19,8 @@ Objetivo: que alguien pueda abrir Sentadillas desde Liga, entender en segundos c
 - Pedir permiso de cámara en el primer uso. Al tocar Entrenar, abrir la cámara en la misma pantalla y usar una sola comprobación de encuadre y postura. Cuando esté lista, iniciar una cuenta regresiva corta con opción de cancelar.
 - Priorizar el número de repeticiones grande y de alto contraste. Mostrar un solo estado a la vez. Usar sonido opcional para inicio, repetición y pérdida de seguimiento sostenida. La vibración del teléfono puede complementar el aviso cuando se tiene en la mano.
 - Mantener Pausar y Terminar accesibles. Las explicaciones largas se quedan en la guía y los avisos importantes durante la sesión deben entenderse sin leer texto pequeño.
+
+La primera apertura muestra la guía visual antes de solicitar la cámara. En visitas posteriores, «Activar cámara» abre directamente la preparación y «Ver guía de sentadillas» permite consultarla de nuevo. Si se abre la guía durante la preparación, se cancela la cuenta regresiva y se libera la cámara. Cada repetición válida muestra una marca breve junto al contador y conserva los avisos sonoros opcionales.
 
 ## Entrega 7C · Entrada rápida desde Liga y validación
 
