@@ -35,6 +35,12 @@ class TrainingSessionPage extends ConsumerStatefulWidget {
 class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
     with WidgetsBindingObserver {
   late final _session = TrainingSessionController(movement: widget.movement);
+  bool get _isPlank => widget.movement == TrainingMovement.plank;
+  int get _measurement =>
+      _isPlank ? _session.holdDuration.inSeconds : _session.reps;
+  String get _unit => _isPlank
+      ? (_measurement == 1 ? 'Segundo en plancha' : 'Segundos en plancha')
+      : (_measurement == 1 ? 'Repetición' : 'Repeticiones');
   late final TrainingCameraController _camera;
   TrainingPhase _previousPhase = TrainingPhase.preparation;
   bool _exitDialogOpen = false;
@@ -46,13 +52,11 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
   bool _discarding = false;
   String? _storageError;
   final _preferences = SharedPreferencesAsync();
-  String get _guideKey => 'training.${widget.movement.name}.visualGuideSeen';
   String get _guideLabel =>
       'Ver guía de ${widget.movement.label.toLowerCase()}';
   static const _audioKey = 'training.audioEnabled';
   static const _audioChannel = MethodChannel('rivalfit/training_audio');
   bool _cameraRequested = false;
-  bool? _showGuide;
   bool _audioEnabled = true;
   bool _foreground = true;
   bool _autoStart = true;
@@ -80,24 +84,17 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
 
   Future<void> _loadPreferences() async {
     try {
-      final seen = await _preferences.getBool(_guideKey) ?? false;
       final audio = await _preferences.getBool(_audioKey) ?? true;
       if (!mounted) return;
-      setState(() {
-        _audioEnabled = audio;
-        if (!_cameraRequested) _showGuide = !seen;
-      });
+      setState(() => _audioEnabled = audio);
     } on Exception {
-      if (mounted && _showGuide == null) setState(() => _showGuide = true);
+      // The audio toggle remains available without stored preferences.
     }
   }
 
   void _showSetupGuide() {
     _cancelCountdown();
-    setState(() {
-      _cameraRequested = false;
-      _showGuide = true;
-    });
+    setState(() => _cameraRequested = false);
     _session.updatePosture(ready: false);
     unawaited(_camera.deactivate());
   }
@@ -107,7 +104,6 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
       _cameraRequested = true;
       _autoStart = true;
     });
-    unawaited(_savePreference(_guideKey, true));
     if (_foreground) unawaited(_camera.activate());
   }
 
@@ -490,16 +486,9 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                   : SafeArea(
                       child: _cameraRequested
                           ? _cameraStage(phase)
-                          : _showGuide == null
-                          ? const Center(child: CircularProgressIndicator())
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(
-                                24,
-                                12,
-                                24,
-                                32,
-                              ),
-                              child: _guide(),
+                          : TrainingSetupGuide(
+                              movement: widget.movement,
+                              onStart: _openCamera,
                             ),
                     ),
             ),
@@ -508,42 +497,6 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
       },
     );
   }
-
-  Widget _guide() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.carbon,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_showGuide == true)
-              TrainingSetupGuide(movement: widget.movement)
-            else
-              Text(
-                widget.movement == TrainingMovement.squat
-                    ? 'Ponte de pie dentro del encuadre para iniciar la cuenta regresiva.'
-                    : 'Mira hacia el celular en posición de plancha, con los brazos extendidos.',
-                style: const TextStyle(color: Colors.white, fontSize: 17),
-              ),
-            const SizedBox(height: 14),
-            const Text(
-              'La cámara cuenta repeticiones en tu teléfono. El video no se graba ni se envía.',
-              style: TextStyle(color: Colors.white70, height: 1.4),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 12),
-      _primary('Activar cámara', _openCamera),
-      if (_showGuide == false)
-        TextButton(onPressed: _showSetupGuide, child: Text(_guideLabel)),
-    ],
-  );
 
   Widget _cameraStage(TrainingPhase phase) => LayoutBuilder(
     builder: (context, constraints) {
@@ -614,12 +567,12 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                 Flexible(
                   flex: 2,
                   child: Semantics(
-                    label: '${_session.reps} repeticiones',
+                    label: '$_measurement ${_unit.toLowerCase()}',
                     excludeSemantics: true,
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '${_session.reps}',
+                        '$_measurement',
                         style: const TextStyle(
                           color: AppColors.volt,
                           fontSize: 88,
@@ -643,7 +596,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                         child: Text(
                           _repFeedbackTimer != null
                               ? '✓ Repetición válida'
-                              : 'Repeticiones',
+                              : _unit,
                           style: TextStyle(
                             color: _repFeedbackTimer != null
                                 ? AppColors.volt
@@ -738,7 +691,11 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
       final status = switch (record?.state) {
         _ when saving => 'Guardando sesión…',
         _ when error != null => error,
-        _ when _session.reps == 0 => 'Esta serie quedó sin repeticiones.',
+        _ when _measurement == 0 =>
+          _isPlank
+              ? 'No se registró tiempo en postura.'
+              : 'Esta serie quedó sin repeticiones.',
+        SavedSessionState.personal => 'Guardada en este teléfono',
         SavedSessionState.confirmed => 'Sesión sincronizada',
         SavedSessionState.rejected =>
           record?.error ?? 'No se pudo acreditar la sesión.',
@@ -844,7 +801,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              '${_session.reps}',
+              '$_measurement',
               style: const TextStyle(
                 fontSize: 48,
                 fontWeight: FontWeight.w900,
@@ -859,7 +816,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_session.reps == 1 ? 'Repetición' : 'Repeticiones'),
+              Text(_unit),
               Text(
                 _activeTimeLabel,
                 style: const TextStyle(color: AppColors.grayMain),

@@ -66,7 +66,7 @@ class TrainingSessionRepository {
   Future<void> complete(TrainingSessionResult result) async {
     if (!_ownsAccount) throw StateError('Session account changed');
     await load();
-    if (!result.eligibleForSubmission) {
+    if (!result.eligibleForSubmission && !result.eligibleForLocalHistory) {
       await discardDraft(result.sessionId);
       return;
     }
@@ -85,11 +85,15 @@ class TrainingSessionRepository {
       SavedTrainingSession(
         ownerId: store.ownerId,
         result: result,
-        state: SavedSessionState.pending,
+        state: result.eligibleForSubmission
+            ? SavedSessionState.pending
+            : SavedSessionState.personal,
       ),
     );
     await _refresh();
-    unawaited(sync().catchError((Object _) {}));
+    if (result.eligibleForSubmission) {
+      unawaited(sync().catchError((Object _) {}));
+    }
   }
 
   Future<void> discardDraft(String id) async {

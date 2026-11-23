@@ -11,6 +11,7 @@ import '../../domain/models/squat_observation.dart';
 import '../../domain/models/training_observation.dart';
 import '../../domain/models/training_session.dart';
 import '../../domain/services/push_up_counter.dart';
+import '../../domain/services/core_counter.dart';
 
 enum TrainingCameraStatus {
   idle,
@@ -34,6 +35,7 @@ class TrainingCameraController extends ChangeNotifier {
   final TrainingMovement movement;
   final _gate = PostureReadinessGate();
   final _pushUpGate = PushUpPoseGate();
+  final _coreGate = CorePoseGate();
   final _clock = Stopwatch()..start();
   CameraController? _camera;
   PoseDetector? _detector;
@@ -169,9 +171,7 @@ class TrainingCameraController extends ChangeNotifier {
     }
     _lastFrame = _clock.elapsed;
     final timing = kProfileMode
-        ? (TimelineTask()..start(
-            movement == TrainingMovement.squat ? 'Squat pose' : 'Push-up pose',
-          ))
+        ? (TimelineTask()..start('${movement.name} pose'))
         : null;
     _processing = _process(image).whenComplete(() {
       timing?.finish();
@@ -242,6 +242,32 @@ class TrainingCameraController extends ChangeNotifier {
           }).toList();
       final timestamp = _clock.elapsed;
       final aspectRatio = width / height;
+      if (movement == TrainingMovement.crunch ||
+          movement == TrainingMovement.plank) {
+        final plank = movement == TrainingMovement.plank;
+        final observation = _coreGate.evaluate(
+          left: points([
+            PoseLandmarkType.leftShoulder,
+            PoseLandmarkType.leftHip,
+            PoseLandmarkType.leftKnee,
+            PoseLandmarkType.leftAnkle,
+            if (plank) PoseLandmarkType.leftElbow,
+          ]),
+          right: points([
+            PoseLandmarkType.rightShoulder,
+            PoseLandmarkType.rightHip,
+            PoseLandmarkType.rightKnee,
+            PoseLandmarkType.rightAnkle,
+            if (plank) PoseLandmarkType.rightElbow,
+          ]),
+          timestamp: timestamp,
+          aspectRatio: aspectRatio,
+          plank: plank,
+        );
+        onObservation?.call(observation);
+        _update(observation.readiness);
+        return;
+      }
       if (movement == TrainingMovement.pushUp) {
         final observation = _pushUpGate.evaluate(
           left: points([
@@ -339,6 +365,7 @@ class TrainingCameraController extends ChangeNotifier {
   void _resetPoseGate() {
     _gate.reset();
     _pushUpGate.reset();
+    _coreGate.reset();
   }
 
   Future<void> _release() async {

@@ -2,19 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
-import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
-import 'package:rivalfit/features/exercise/presentation/widgets/saved_training_sessions_card.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
 
-import '../widgets/exercise_card.dart';
+import '../widgets/daily_steps_card.dart';
 import '../widgets/recommended_routine_card.dart';
 import '../widgets/weekly_progress_card.dart';
 
 class TrainingView extends ConsumerWidget {
-  static const backgroundColor = Color(0xFFF8F5EF);
+  static const backgroundColor = Color(0xFFF7F3EC);
 
   final VoidCallback onGoToLeague;
 
@@ -36,10 +33,10 @@ class TrainingView extends ConsumerWidget {
       child: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+          padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
+              constraints: const BoxConstraints(maxWidth: 520),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -51,7 +48,7 @@ class TrainingView extends ConsumerWidget {
                           'RivalFit',
                           style: TextStyle(
                             color: AppColors.carbon,
-                            fontSize: 28,
+                            fontSize: 31,
                             fontStyle: FontStyle.italic,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -1.4,
@@ -61,7 +58,7 @@ class TrainingView extends ConsumerWidget {
                       ),
                       CircleAvatar(
                         radius: 18,
-                        backgroundColor: const Color(0xFF4F2CA7),
+                        backgroundColor: AppColors.carbon,
                         foregroundImage: hasPhoto
                             ? NetworkImage(photoUrl)
                             : null,
@@ -77,128 +74,214 @@ class TrainingView extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Tu rutina de hoy',
-                    style: TextStyle(
-                      color: AppColors.carbon,
-                      fontSize: 25,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.7,
-                      height: 1.1,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   const RecommendedRoutineCard(),
-                  const SizedBox(height: 16),
-                  const WeeklyProgressCard(),
-                  const SizedBox(height: 8),
-                  AppCard(
-                    showShadow: false,
-                    borderRadius: const BorderRadius.all(Radius.circular(16)),
-                    padding: const EdgeInsets.all(12),
-                    onTap: hasLeague
-                        ? () => context.push('/league/ranking')
-                        : onGoToLeague,
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 17,
-                          backgroundColor: Color(0xFFE8F7BF),
-                          foregroundColor: AppColors.carbon,
-                          child: Icon(Icons.leaderboard_outlined, size: 19),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'Tu Liga',
-                            style: TextStyle(
-                              color: AppColors.carbon,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        Flexible(
-                          child: Text(
-                            hasLeague ? 'Ver ranking' : 'Ver ligas',
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(
-                              color: AppColors.grayMain,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.carbon,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Ejercicios libres',
-                    style: TextStyle(
-                      color: AppColors.carbon,
-                      fontSize: 21,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                  const SizedBox(height: 15),
+                  const _SectionHeading('Ejercicios libres'),
                   const SizedBox(height: 10),
-                  for (final movement in TrainingMovement.values) ...[
-                    ExerciseCard(
-                      exercise: appExercises.firstWhere(
-                        (e) => e.id == movement.id,
-                      ),
-                      available: true,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  const SizedBox(height: 14),
-                  const Text(
-                    'Próximamente',
-                    style: TextStyle(
-                      color: AppColors.grayMain,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      const gap = 8.0;
                       final scale =
                           MediaQuery.textScalerOf(context).scale(14) / 14;
-                      final columns = constraints.maxWidth / scale >= 280
-                          ? 2
-                          : 1;
-                      final width =
-                          (constraints.maxWidth - gap * (columns - 1)) /
-                          columns;
+                      final width = constraints.maxWidth >= 285 * scale
+                          ? (constraints.maxWidth - 8) / 2
+                          : constraints.maxWidth;
                       return Wrap(
-                        spacing: gap,
-                        runSpacing: gap,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
-                          for (final exercise in appExercises.where(
-                            (e) => TrainingMovement.forId(e.id) == null,
-                          ))
+                          for (final exercise in appExercises)
                             SizedBox(
                               width: width,
-                              child: ExerciseCard(exercise: exercise),
+                              child: _MovementTile(exercise: exercise),
                             ),
                         ],
                       );
                     },
                   ),
-                  const SizedBox(height: 20),
-                  const SavedTrainingSessionsCard(),
+                  const SizedBox(height: 16),
+                  const _SectionHeading('Tu actividad'),
+                  const SizedBox(height: 10),
+                  const _ActivityPanel(),
+                  const SizedBox(height: 12),
+                  Material(
+                    color: const Color(0xFFEDE6DB),
+                    borderRadius: BorderRadius.circular(13),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: hasLeague
+                          ? () => context.push('/league/ranking')
+                          : onGoToLeague,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.emoji_events_outlined,
+                              color: AppColors.carbon,
+                            ),
+                            SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Liga semanal',
+                                style: TextStyle(
+                                  color: AppColors.carbon,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text('Ver liga', textAlign: TextAlign.end),
+                            ),
+                            Icon(Icons.chevron_right_rounded, size: 17),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionHeading extends StatelessWidget {
+  const _SectionHeading(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    label,
+    style: const TextStyle(
+      color: AppColors.carbon,
+      fontSize: 23,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.55,
+    ),
+  );
+}
+
+class _ActivityPanel extends StatelessWidget {
+  const _ActivityPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+            if (constraints.maxWidth < 260 * scale) {
+              return const Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DailyStepsCard(),
+                  Divider(height: 24),
+                  WeeklyProgressCard(),
+                ],
+              );
+            }
+            return const IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: DailyStepsCard()),
+                  VerticalDivider(
+                    width: 24,
+                    thickness: 1,
+                    color: Color(0xFFE0DDD8),
+                  ),
+                  Expanded(child: WeeklyProgressCard()),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _MovementTile extends StatelessWidget {
+  const _MovementTile({required this.exercise});
+
+  final Exercise exercise;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFEAE3D8),
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/exercise/${exercise.id}'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final artworkWidth = (constraints.maxWidth * 0.48).clamp(
+              55.0,
+              112.0,
+            );
+            final squat = exercise.id == 'sentadillas';
+            return Stack(
+              children: [
+                Positioned(
+                  right: 6,
+                  bottom: 4,
+                  child: Image.asset(
+                    'assets/icons/pose-${exercise.id}.png',
+                    width: artworkWidth,
+                    height: squat ? 68 : 52,
+                    alignment: Alignment.bottomRight,
+                    fit: BoxFit.contain,
+                    excludeFromSemantics: true,
+                  ),
+                ),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 82),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(11, 9, 9, squat ? 10 : 35),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          exercise.name,
+                          style: const TextStyle(
+                            color: AppColors.carbon,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.35,
+                          ),
+                        ),
+                        Text(
+                          exercise.muscleLabel,
+                          style: const TextStyle(
+                            color: AppColors.carbon,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

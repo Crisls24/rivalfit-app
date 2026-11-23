@@ -6,6 +6,7 @@ import '../../domain/models/training_session.dart';
 import '../../domain/models/squat_observation.dart';
 import '../../domain/models/training_observation.dart';
 import '../../domain/services/push_up_counter.dart';
+import '../../domain/services/core_counter.dart';
 import '../../domain/services/squat_counter.dart';
 
 enum TrainingPhase { preparation, active, recovering, paused, finished }
@@ -31,6 +32,8 @@ class TrainingSessionController extends ChangeNotifier {
   late final TrainingRepCounter _counter = switch (movement) {
     TrainingMovement.squat => SquatCounter(),
     TrainingMovement.pushUp => PushUpCounter(),
+    TrainingMovement.crunch => CoreCounter(plank: false),
+    TrainingMovement.plank => CoreCounter(plank: true),
   };
   late String _feedback = _counter.instruction;
   DateTime? _startedAt;
@@ -39,6 +42,8 @@ class TrainingSessionController extends ChangeNotifier {
   TrainingPhase _phase = TrainingPhase.preparation;
   bool _postureReady = false;
   int _reps = 0;
+  Duration _hold = Duration.zero;
+  CoreObservation? _lastHold;
   TrainingObservation? _lastUsable;
   Timer? _trackingLossTimer;
   bool _endedAfterTrackingLoss = false;
@@ -46,6 +51,7 @@ class TrainingSessionController extends ChangeNotifier {
   TrainingPhase get phase => _phase;
   bool get postureReady => _postureReady;
   int get reps => _reps;
+  Duration get holdDuration => _hold > _clock.elapsed ? _clock.elapsed : _hold;
   String get feedback => _feedback;
   String? get sessionId => _sessionId;
   TrainingSessionResult? get result => _result;
@@ -68,6 +74,7 @@ class TrainingSessionController extends ChangeNotifier {
     var changed = _postureReady != ready;
     _postureReady = ready;
     if (!ready) {
+      _lastHold = null;
       _counter.reset();
       _lastUsable = null;
     }
@@ -132,6 +139,7 @@ class TrainingSessionController extends ChangeNotifier {
         if (_phase == TrainingPhase.finished) return;
       }
       if (!usable && !lost) {
+        _lastHold = null;
         if (observation is PushUpObservation &&
             observation.readiness.bodyVisible &&
             !observation.aligned) {
@@ -174,13 +182,24 @@ class TrainingSessionController extends ChangeNotifier {
       return;
     }
     _lastUsable = observation;
+    if (movement == TrainingMovement.plank && observation is CoreObservation) {
+      final previousHold = _lastHold;
+      final before = holdDuration.inSeconds;
+      if (previousHold?.side == observation.side) {
+        _hold += observation.timestamp - previousHold!.timestamp;
+      }
+      _lastHold = observation;
+      if (holdDuration.inSeconds != before) notifyListeners();
+    }
     final counted = _counter.observe(observation);
     _setFeedback(_counter.instruction);
     if (counted) recordValidRep();
   }
 
   String _trackingInstruction(TrainingObservation observation) =>
-      observation.readiness.bodyVisible
+      observation is CoreObservation
+      ? observation.readiness.instruction
+      : observation.readiness.bodyVisible
       ? 'Ajusta tu posición'
       : 'Fuera de cuadro';
 
@@ -228,7 +247,11 @@ class TrainingSessionController extends ChangeNotifier {
   }
 
   void recordValidRep() {
-    if (_phase != TrainingPhase.active || !_postureReady) return;
+    if (_phase != TrainingPhase.active ||
+        !_postureReady ||
+        movement == TrainingMovement.plank) {
+      return;
+    }
     _reps++;
     notifyListeners();
   }
@@ -239,6 +262,7 @@ class TrainingSessionController extends ChangeNotifier {
     }
     _cancelTrackingTimeout();
     _clock.stop();
+    _lastHold = null;
     _postureReady = false;
     _lastUsable = null;
     _counter.reset();
@@ -276,6 +300,8 @@ class TrainingSessionController extends ChangeNotifier {
     _postureReady = false;
     _lastUsable = null;
     _reps = 0;
+    _hold = Duration.zero;
+    _lastHold = null;
     _feedback = _counter.instruction;
     _phase = TrainingPhase.preparation;
     notifyListeners();
@@ -296,6 +322,7 @@ class TrainingSessionController extends ChangeNotifier {
       endedAtUtc: now.isBefore(earliestEnd) ? earliestEnd : now,
       activeDuration: duration,
       validReps: _reps,
+      holdDuration: holdDuration,
     );
   }
 

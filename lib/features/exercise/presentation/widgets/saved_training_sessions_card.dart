@@ -136,7 +136,11 @@ class _SavedTrainingSessionsCardState
       data: (records) {
         if (records.isEmpty) return const SizedBox.shrink();
         final needsAttention = records
-            .where((r) => r.state != SavedSessionState.confirmed)
+            .where(
+              (r) =>
+                  r.state != SavedSessionState.confirmed &&
+                  r.state != SavedSessionState.personal,
+            )
             .toList();
         if (needsAttention.isEmpty && _error == null) {
           final latest = records.first;
@@ -146,10 +150,10 @@ class _SavedTrainingSessionsCardState
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle_outline_rounded,
                   color: AppColors.success,
-                  semanticLabel: 'Sincronizada',
+                  semanticLabel: _status(latest),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -184,9 +188,10 @@ class _SavedTrainingSessionsCardState
             ),
           );
         }
-        final visible = needsAttention
-            .take(_showAll ? needsAttention.length : 3)
-            .toList();
+        final visible = [
+          ...needsAttention.take(_showAll ? needsAttention.length : 3),
+          if (!needsAttention.contains(records.first)) records.first,
+        ];
         final repository = ref
             .watch(trainingSessionRepositoryProvider)
             .valueOrNull;
@@ -233,7 +238,8 @@ class _SavedTrainingSessionsCardState
                   Wrap(
                     spacing: 8,
                     children: [
-                      if (record.result.validReps > 0)
+                      if (record.result.eligibleForSubmission ||
+                          record.result.eligibleForLocalHistory)
                         TextButton(
                           onPressed: _busy
                               ? null
@@ -280,11 +286,11 @@ class _SavedTrainingSessionsCardState
   }
 
   String _sessionLabel(SavedTrainingSession record) {
-    final reps = record.result.validReps;
-    final name =
-        TrainingMovement.forId(record.result.exerciseId)?.label ??
-        record.result.exerciseId;
-    return '$name · $reps ${reps == 1 ? 'repetición' : 'repeticiones'}';
+    final name = record.result.exerciseId == 'cardio'
+        ? 'Cardio'
+        : TrainingMovement.forId(record.result.exerciseId)?.label ??
+              record.result.exerciseId;
+    return '$name · ${record.result.measurementLabel}';
   }
 
   String _status(SavedTrainingSession record) => switch (record.state) {
@@ -293,6 +299,7 @@ class _SavedTrainingSessionsCardState
     SavedSessionState.pending =>
       'Guardada en este teléfono · Pendiente de sincronizar',
     SavedSessionState.confirmed => 'Sincronizada',
+    SavedSessionState.personal => 'Guardada en este teléfono',
     SavedSessionState.rejected =>
       record.error ?? 'Guardada en este teléfono · No aceptada por el servidor',
   };

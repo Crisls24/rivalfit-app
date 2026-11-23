@@ -27,10 +27,10 @@ class TrainingSessionSupabaseRemote implements TrainingSessionRemote {
           )
           .eq('user_id', ownerId)
           .eq('platform', TrainingSource.camera.name)
-          .inFilter(
-            'rules_version',
-            TrainingMovement.values.map((m) => m.rulesVersion).toList(),
-          );
+          .inFilter('rules_version', const [
+            SquatSessionRules.version,
+            'lagartijas-v1',
+          ]);
       if (cursor != null) query = query.gt('id', cursor);
       final page = await query
           .order('id', ascending: true)

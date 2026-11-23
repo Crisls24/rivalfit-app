@@ -6,9 +6,14 @@ import 'package:rivalfit/app/theme/app_colors.dart';
 import '../../domain/models/training_session.dart';
 
 class TrainingSetupGuide extends StatefulWidget {
-  const TrainingSetupGuide({super.key, required this.movement});
+  const TrainingSetupGuide({
+    super.key,
+    required this.movement,
+    required this.onStart,
+  });
 
   final TrainingMovement movement;
+  final VoidCallback onStart;
 
   @override
   State<TrainingSetupGuide> createState() => _TrainingSetupGuideState();
@@ -39,45 +44,180 @@ class _TrainingSetupGuideState extends State<TrainingSetupGuide>
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const Text(
-        'Antes de empezar',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 26,
-          fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) {
+    final (framing, motion) = switch (widget.movement) {
+      TrainingMovement.squat => (
+        'Apoya el celular en el piso frente a ti. Deja visibles la cabeza y los pies.',
+        'Empieza de pie. Baja la cadera y vuelve a ponerte de pie.',
+      ),
+      TrainingMovement.pushUp => (
+        'Apoya el celular enfrente, un poco a un lado. Deja visibles las manos y los pies.',
+        'Empieza en plancha con los brazos extendidos. Baja el pecho y vuelve a subir.',
+      ),
+      TrainingMovement.crunch => (
+        'Coloca el celular bajo y en diagonal a un lado. Deja visibles los hombros, la cadera y los pies.',
+        'Recuéstate boca arriba con las rodillas flexionadas. Eleva los hombros y bájalos con control.',
+      ),
+      TrainingMovement.plank => (
+        'Coloca el celular bajo y en diagonal a un lado. Deja visibles el torso y los pies.',
+        'Apoya los antebrazos y las puntas de los pies. Mantén hombros, cadera y tobillos alineados.',
+      ),
+    };
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final demoHeight = (constraints.maxHeight * .36).clamp(
+              152.0,
+              286.0,
+            );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                    children: [
+                      Container(
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(26),
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFF252923), AppColors.carbon],
+                          ),
+                        ),
+                        child: RepaintBoundary(
+                          child: ExcludeSemantics(
+                            child: CustomPaint(
+                              size: Size(double.infinity, demoHeight),
+                              painter: _ExerciseDemo(_motion, widget.movement),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      const Text(
+                        'Cómo hacerlo',
+                        style: TextStyle(
+                          fontSize: 24,
+                          height: 1.15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.carbon,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _GuideStep(
+                        icon: Icons.center_focus_strong_rounded,
+                        title: 'Encuadra tu cuerpo',
+                        detail: framing,
+                      ),
+                      const Divider(height: 18),
+                      _GuideStep(
+                        icon: Icons.fitness_center_rounded,
+                        title: widget.movement == TrainingMovement.plank
+                            ? 'Mantén la postura'
+                            : 'Haz el movimiento',
+                        detail: motion,
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      FilledButton.icon(
+                        onPressed: widget.onStart,
+                        icon: const Icon(Icons.videocam_rounded),
+                        label: const Text('Activar cámara'),
+                        style: FilledButton.styleFrom(
+                          foregroundColor: AppColors.carbon,
+                          backgroundColor: AppColors.volt,
+                          minimumSize: const Size.fromHeight(56),
+                          textStyle: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'El video se analiza en tu teléfono, sin grabarlo ni enviarlo.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.grayMain,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
-      const SizedBox(height: 12),
-      ExcludeSemantics(
-        child: CustomPaint(
-          size: const Size(0, 132),
-          painter: _ExerciseDemo(_motion, widget.movement),
+    );
+  }
+}
+
+class _GuideStep extends StatelessWidget {
+  const _GuideStep({
+    required this.icon,
+    required this.title,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: AppColors.volt.withValues(alpha: .2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 19, color: AppColors.carbon),
         ),
-      ),
-      const SizedBox(height: 12),
-      Text(
-        widget.movement == TrainingMovement.squat
-            ? 'Apoya el celular en el piso frente a ti. Aléjate hasta que se vean tu cabeza y tus pies.'
-            : 'Coloca el celular en el piso, frente a ti y un poco a un lado. Mantén las manos y los pies dentro del cuadro.',
-        style: const TextStyle(color: Colors.white, height: 1.4),
-      ),
-      const SizedBox(height: 8),
-      const Text(
-        'Con el sonido activado, la cuenta regresiva te avisa cuando estás listo.',
-        style: TextStyle(color: Colors.white70, height: 1.4),
-      ),
-      const SizedBox(height: 8),
-      Text(
-        widget.movement == TrainingMovement.squat
-            ? 'Empieza de pie. Baja y vuelve a ponerte de pie para sumar una repetición.'
-            : 'Empieza en plancha con los brazos extendidos. Baja el pecho y vuelve a extender los brazos.',
-        style: const TextStyle(color: Colors.white, height: 1.4),
-      ),
-    ],
-  );
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.carbon,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                detail,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  color: AppColors.grayMain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ExerciseDemo extends CustomPainter {
@@ -89,7 +229,10 @@ class _ExerciseDemo extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const diagram = Size(204, 132);
-    final scale = (size.width / diagram.width).clamp(0.0, 1.0);
+    final scale = ((size.width - 32) / diagram.width).clamp(
+      0.0,
+      (size.height - 24) / diagram.height,
+    );
     canvas.save();
     canvas.translate(
       (size.width - diagram.width * scale) / 2,
@@ -98,7 +241,7 @@ class _ExerciseDemo extends CustomPainter {
     canvas.scale(scale);
 
     final outline = Paint()
-      ..color = Colors.white38
+      ..color = Colors.white30
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     canvas.drawRRect(
@@ -108,6 +251,20 @@ class _ExerciseDemo extends CustomPainter {
       ),
       outline,
     );
+    final guideMarks = Paint()
+      ..color = AppColors.volt.withValues(alpha: .38)
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round;
+    for (final (x, y, dx, dy) in [
+      (91.0, 13.0, 1, 1),
+      (184.0, 13.0, -1, 1),
+      (91.0, 105.0, 1, -1),
+      (184.0, 105.0, -1, -1),
+    ]) {
+      final corner = Offset(x, y);
+      canvas.drawLine(corner, corner + Offset(dx * 10.0, 0), guideMarks);
+      canvas.drawLine(corner, corner + Offset(0, dy * 10.0), guideMarks);
+    }
     canvas.drawLine(const Offset(16, 120), const Offset(187, 120), outline);
     final accent = Paint()..color = AppColors.volt;
     canvas.drawRRect(
@@ -121,6 +278,12 @@ class _ExerciseDemo extends CustomPainter {
     canvas.drawLine(const Offset(43, 100), const Offset(79, 108), outline);
 
     final t = Curves.easeInOut.transform(motion.value);
+    if (movement == TrainingMovement.crunch ||
+        movement == TrainingMovement.plank) {
+      _paintCore(canvas, accent, t);
+      canvas.restore();
+      return;
+    }
     if (movement == TrainingMovement.pushUp) {
       _paintPushUp(canvas, accent, t);
       canvas.restore();
@@ -169,6 +332,47 @@ class _ExerciseDemo extends CustomPainter {
       Path()..addPolygon([shoulder, elbow, const Offset(115, 110)], false),
       paint,
     );
+  }
+
+  void _paintCore(Canvas canvas, Paint paint, double t) {
+    final plank = movement == TrainingMovement.plank;
+    final shoulder = plank
+        ? const Offset(112, 78)
+        : Offset(lerpDouble(112, 118, t)!, lerpDouble(102, 86, t)!);
+    final hip = plank ? const Offset(145, 92) : const Offset(143, 109);
+    final knee = plank ? const Offset(163, 100) : const Offset(156, 85);
+    const ankle = Offset(176, 109);
+    if (plank) {
+      canvas.drawLine(
+        shoulder,
+        ankle,
+        Paint()
+          ..color = Colors.white.withValues(alpha: .2 + t * .6)
+          ..strokeWidth = 2,
+      );
+    }
+    canvas.drawCircle(shoulder + const Offset(-8, -5), 6, paint);
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()..addPolygon([shoulder, hip, knee, ankle], false),
+      paint,
+    );
+    if (plank) {
+      canvas.drawPath(
+        Path()..addPolygon([
+          shoulder,
+          const Offset(115, 109),
+          const Offset(100, 109),
+        ], false),
+        paint,
+      );
+    } else {
+      canvas.drawLine(shoulder, shoulder + const Offset(12, -3), paint);
+    }
   }
 
   @override

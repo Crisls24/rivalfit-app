@@ -1,6 +1,6 @@
 import 'training_session.dart';
 
-enum SavedSessionState { draft, pending, confirmed, rejected }
+enum SavedSessionState { draft, pending, confirmed, rejected, personal }
 
 class SavedTrainingSession {
   final String ownerId;

@@ -21,8 +21,7 @@ enum MuscleGroup {
 /// Ejercicio disponible para entrenar. En la Fase 1 el listado es estatico;
 /// luego se enriquece con reps de hoy, PR y si ya se mostro el tutorial.
 ///
-/// El icono propio de cada ejercicio puede diferir del canonico de su grupo
-/// (por ejemplo "Dips" usa un icono distinto al de Pecho y brazos).
+/// El icono propio de cada ejercicio puede diferir del canonico de su grupo.
 class Exercise {
   final String id;
   final String name;
@@ -44,18 +43,18 @@ class Exercise {
 /// Catálogo inicial de RivalFit (PRD seccion 3).
 const List<Exercise> appExercises = [
   Exercise(
-    id: 'lagartijas',
-    name: 'Lagartijas',
-    icon: Icons.fitness_center_rounded,
-    accent: AppColors.volt,
-    muscleGroups: [MuscleGroup.chestArms],
-  ),
-  Exercise(
     id: 'sentadillas',
     name: 'Sentadillas',
     icon: Icons.accessibility_new_rounded,
     accent: AppColors.intermediateOrange,
     muscleGroups: [MuscleGroup.legs],
+  ),
+  Exercise(
+    id: 'lagartijas',
+    name: 'Lagartijas',
+    icon: Icons.fitness_center_rounded,
+    accent: AppColors.volt,
+    muscleGroups: [MuscleGroup.chestArms],
   ),
   Exercise(
     id: 'abdominales',
@@ -65,17 +64,10 @@ const List<Exercise> appExercises = [
     muscleGroups: [MuscleGroup.core],
   ),
   Exercise(
-    id: 'dips',
-    name: 'Dips',
-    icon: Icons.self_improvement,
+    id: 'plancha',
+    name: 'Plancha',
+    icon: Icons.horizontal_rule_rounded,
     accent: AppColors.carbon,
-    muscleGroups: [MuscleGroup.chestArms],
-  ),
-  Exercise(
-    id: 'cardio',
-    name: 'Cardio',
-    icon: Icons.monitor_heart_rounded,
-    accent: AppColors.grayMain,
-    muscleGroups: [MuscleGroup.cardio],
+    muscleGroups: [MuscleGroup.core],
   ),
 ];

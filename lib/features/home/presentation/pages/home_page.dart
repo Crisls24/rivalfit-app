@@ -96,6 +96,7 @@ class _HomePageState extends ConsumerState<HomePage> {
         }),
       ),
       child: NavigationBar(
+        height: 66,
         maintainBottomViewPadding: true,
         selectedIndex: _index,
         onDestinationSelected: _selectTab,
@@ -115,13 +116,13 @@ class _HomePageState extends ConsumerState<HomePage> {
             label: 'Entrenar',
           ),
           NavigationDestination(
-            icon: Icon(Icons.group_outlined),
-            selectedIcon: Icon(Icons.group_rounded),
+            icon: Icon(Icons.emoji_events_outlined),
+            selectedIcon: Icon(Icons.emoji_events_rounded),
             label: 'Liga',
           ),
           NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights),
+            icon: Icon(Icons.bar_chart_rounded),
+            selectedIcon: Icon(Icons.bar_chart_rounded),
             label: 'Progreso',
           ),
           NavigationDestination(

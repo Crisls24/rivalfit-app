@@ -13,6 +13,7 @@ import 'package:rivalfit/features/auth/presentation/pages/signup_page.dart';
 import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
 import 'package:rivalfit/features/exercise/presentation/pages/coming_soon_page.dart';
 import 'package:rivalfit/features/exercise/presentation/pages/training_session_page.dart';
+import 'package:rivalfit/features/exercise/presentation/pages/cardio_session_page.dart';
 import 'package:rivalfit/features/home/presentation/pages/home_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_join_page.dart';
 import 'package:rivalfit/features/league/presentation/pages/league_ranking_page.dart';
@@ -153,6 +154,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'exercise',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? 'ejercicio';
+          if (id == 'cardio') return const CardioSessionPage();
           final movement = TrainingMovement.forId(id);
           if (movement != null) {
             return TrainingSessionPage(

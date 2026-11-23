@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 import 'package:rivalfit/app/widgets/app_card.dart';
 import 'package:rivalfit/features/exercise/domain/models/exercise.dart';
+import 'package:rivalfit/features/exercise/domain/models/training_session.dart';
+
+import 'exercise_pose_icon.dart';
 
 class ExerciseCard extends StatelessWidget {
   final Exercise exercise;
@@ -16,6 +19,7 @@ class ExerciseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final movement = TrainingMovement.forId(exercise.id);
     return AppCard(
       padding: EdgeInsets.all(available ? 12 : 9),
       borderRadius: const BorderRadius.all(Radius.circular(16)),
@@ -29,7 +33,9 @@ class ExerciseCard extends StatelessWidget {
                 ? const Color(0xFFE8F7BF)
                 : AppColors.panelSoft,
             foregroundColor: AppColors.carbon,
-            child: Icon(exercise.icon, size: available ? 21 : 17),
+            child: movement == null
+                ? Icon(exercise.icon, size: available ? 21 : 17)
+                : ExercisePoseIcon(movement, width: available ? 32 : 26),
           ),
           const SizedBox(width: 9),
           Expanded(

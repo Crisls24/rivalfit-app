@@ -1,12 +1,14 @@
 import 'dart:math';
 
-enum TrainingSource { camera, simulation }
+enum TrainingSource { camera, simulation, stepSensor }
 
 enum SessionSyncStatus { notSaved, pending, confirmed, rejected }
 
 enum TrainingMovement {
   squat(SquatSessionRules.exerciseId, SquatSessionRules.version, 'Sentadillas'),
-  pushUp('lagartijas', 'lagartijas-v1', 'Lagartijas');
+  pushUp('lagartijas', 'lagartijas-v1', 'Lagartijas'),
+  crunch('abdominales', 'abdominales-v1', 'Abdominales'),
+  plank('plancha', 'plancha-v1', 'Plancha');
 
   const TrainingMovement(this.id, this.rulesVersion, this.label);
 
@@ -51,6 +53,8 @@ class TrainingSessionResult {
   final DateTime endedAtUtc;
   final Duration activeDuration;
   final int validReps;
+  final Duration holdDuration;
+  final int steps;
 
   TrainingSessionResult({
     required this.sessionId,
@@ -61,12 +65,17 @@ class TrainingSessionResult {
     required DateTime endedAtUtc,
     required this.activeDuration,
     required this.validReps,
+    this.holdDuration = Duration.zero,
+    this.steps = 0,
   }) : startedAtUtc = startedAtUtc.toUtc(),
        endedAtUtc = endedAtUtc.toUtc() {
     if (sessionId.isEmpty || exerciseId.isEmpty || rulesVersion.isEmpty) {
       throw ArgumentError('Session identity and rules are required.');
     }
     if (validReps < 0 ||
+        steps < 0 ||
+        holdDuration.isNegative ||
+        holdDuration > activeDuration ||
         activeDuration.isNegative ||
         this.endedAtUtc.isBefore(this.startedAtUtc) ||
         activeDuration > this.endedAtUtc.difference(this.startedAtUtc)) {
@@ -75,7 +84,31 @@ class TrainingSessionResult {
   }
 
   bool get eligibleForSubmission =>
-      source == TrainingSource.camera && validReps > 0;
+      source == TrainingSource.camera &&
+      validReps > 0 &&
+      (exerciseId == TrainingMovement.squat.id ||
+          exerciseId == TrainingMovement.pushUp.id);
+
+  bool get eligibleForLocalHistory =>
+      !eligibleForSubmission &&
+      switch (source) {
+        TrainingSource.camera =>
+          (exerciseId == TrainingMovement.crunch.id && validReps > 0) ||
+              (exerciseId == TrainingMovement.plank.id &&
+                  holdDuration.inSeconds > 0),
+        TrainingSource.stepSensor => exerciseId == 'cardio' && steps > 0,
+        TrainingSource.simulation => false,
+      };
+
+  String get measurementLabel {
+    if (exerciseId == TrainingMovement.plank.id) {
+      return '${holdDuration.inSeconds} s';
+    }
+    if (exerciseId == 'cardio') {
+      return '$steps ${steps == 1 ? 'paso' : 'pasos'}';
+    }
+    return '$validReps ${validReps == 1 ? 'repetición' : 'repeticiones'}';
+  }
 
   Map<String, dynamic> toJson() => {
     'session_id': sessionId,
@@ -86,21 +119,25 @@ class TrainingSessionResult {
     'ended_at': endedAtUtc.toIso8601String(),
     'active_duration_us': activeDuration.inMicroseconds,
     'valid_reps': validReps,
+    if (holdDuration > Duration.zero)
+      'hold_duration_us': holdDuration.inMicroseconds,
+    if (steps > 0) 'steps': steps,
   };
 
-  factory TrainingSessionResult.fromJson(Map<String, dynamic> json) =>
-      TrainingSessionResult(
-        sessionId: json['session_id'] as String,
-        exerciseId: json['exercise_id'] as String,
-        rulesVersion: json['rules_version'] as String,
-        source: TrainingSource.values.byName(json['source'] as String),
-        startedAtUtc: DateTime.parse(json['started_at'] as String),
-        endedAtUtc: DateTime.parse(json['ended_at'] as String),
-        activeDuration: Duration(
-          microseconds: json['active_duration_us'] as int,
-        ),
-        validReps: json['valid_reps'] as int,
-      );
+  factory TrainingSessionResult.fromJson(
+    Map<String, dynamic> json,
+  ) => TrainingSessionResult(
+    sessionId: json['session_id'] as String,
+    exerciseId: json['exercise_id'] as String,
+    rulesVersion: json['rules_version'] as String,
+    source: TrainingSource.values.byName(json['source'] as String),
+    startedAtUtc: DateTime.parse(json['started_at'] as String),
+    endedAtUtc: DateTime.parse(json['ended_at'] as String),
+    activeDuration: Duration(microseconds: json['active_duration_us'] as int),
+    validReps: json['valid_reps'] as int,
+    holdDuration: Duration(microseconds: json['hold_duration_us'] as int? ?? 0),
+    steps: json['steps'] as int? ?? 0,
+  );
 }
 
 /// UUID v4 generated once on start, retained for all future retries.

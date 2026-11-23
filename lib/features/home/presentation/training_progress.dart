@@ -55,7 +55,7 @@ class TrainingProgress {
           legReps += result.validReps;
         case TrainingMovement.pushUp:
           chestArmReps += result.validReps;
-        case null:
+        case TrainingMovement.crunch || TrainingMovement.plank || null:
           break;
       }
     }

@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <uses-permission android:name="android.permission.health.READ_STEPS" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <application
         android:label="RivalFit"
@@ -79,6 +81,20 @@
                     android:pathPrefix="/join"/>
             </intent-filter>
         </activity>
+        <activity
+            android:name=".StepsPrivacyActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.Dialog.NoActionBar" />
+        <activity-alias
+            android:name=".HealthPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".StepsPrivacyActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
