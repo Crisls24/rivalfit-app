@@ -35,17 +35,39 @@ class LeagueMember {
   final String? alias;
   final String? photoUrl;
   final int weeklyPoints;
+  final int? position;
+  final int? legReps;
+  final int? chestArmReps;
+  final LeagueSession? lastSession;
+  final DailyAward? dailyAward;
+
+  String get name =>
+      alias?.trim().isNotEmpty == true ? alias!.trim() : displayName;
   final DateTime joinedAt;
 
   const LeagueMember({
     required this.userId,
     required this.displayName,
     required this.weeklyPoints,
+    this.position,
+    this.legReps,
+    this.chestArmReps,
+    this.lastSession,
+    this.dailyAward,
     required this.joinedAt,
     this.alias,
     this.photoUrl,
   });
 }
+
+typedef LeagueSession = ({String exercise, int reps, DateTime endedAt});
+typedef DailyAward = ({int reps, DateTime day, bool closed});
+
+/// Older rankings return ordered scores without explicit positions.
+int leaguePosition(List<LeagueMember> ranking, int index) =>
+    ranking[index].position ??
+    (ranking.indexWhere((m) => m.weeklyPoints == ranking[index].weeklyPoints) +
+        1);
 
 /// Resultado de busqueda por @alias para invitar amigos.
 class UserSearchResult {

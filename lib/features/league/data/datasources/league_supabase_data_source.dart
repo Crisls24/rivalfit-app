@@ -60,6 +60,15 @@ class LeagueSupabaseDataSource {
   /// quien se unio primero).
   Future<List<Map<String, dynamic>>> getRanking(String leagueId) async {
     if (const bool.fromEnvironment('LEAGUE_WEEKLY_RANKING_ENABLED')) {
+      try {
+        final rows = await _client
+            .rpc('league_standings_v2', params: {'p_league': leagueId})
+            .timeout(_requestTimeout);
+        return List<Map<String, dynamic>>.from(rows as List);
+      } on PostgrestException catch (error) {
+        if (error.code != 'PGRST202') rethrow;
+        // Older deployments still provide the roster and weekly points.
+      }
       final rows = await _client
           .rpc('league_weekly_ranking_v1', params: {'p_league': leagueId})
           .timeout(_requestTimeout);
@@ -119,7 +128,11 @@ class LeagueSupabaseDataSource {
         'public/$uid/league_${leagueId}_${DateTime.now().millisecondsSinceEpoch}.$ext';
     await _client.storage
         .from('avatars')
-        .uploadBinary(path, bytes, fileOptions: const FileOptions(upsert: false));
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: false),
+        );
     final url = _client.storage.from('avatars').getPublicUrl(path);
     await _client
         .from('leagues')

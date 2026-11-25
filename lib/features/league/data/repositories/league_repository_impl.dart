@@ -72,7 +72,11 @@ class LeagueRepositoryImpl implements LeagueRepository {
     String? socialBet,
   }) async {
     try {
-      final raw = await dataSource.createLeague(name, emoji: emoji, socialBet: socialBet);
+      final raw = await dataSource.createLeague(
+        name,
+        emoji: emoji,
+        socialBet: socialBet,
+      );
       return (league: _leagueFromMap(raw, memberCount: 1), error: null);
     } catch (e) {
       return (league: null, error: _friendly(e));
@@ -200,7 +204,26 @@ League _leagueFromMap(Map<String, dynamic> row, {int? memberCount}) {
 
 LeagueMember _memberFromMap(Map<String, dynamic> row) {
   final user = (row['users'] as Map?) ?? const <String, dynamic>{};
+  final session = row['last_session'] as Map?;
+  final award = row['daily_award'] as Map?;
   return LeagueMember(
+    position: (row['position'] as num?)?.toInt(),
+    legReps: (row['leg_reps'] as num?)?.toInt(),
+    chestArmReps: (row['chest_arm_reps'] as num?)?.toInt(),
+    lastSession: session == null
+        ? null
+        : (
+            exercise: session['exercise'] as String,
+            reps: (session['reps'] as num).toInt(),
+            endedAt: DateTime.parse(session['ended_at'] as String),
+          ),
+    dailyAward: award == null || (award['reps'] as num) <= 0
+        ? null
+        : (
+            reps: (award['reps'] as num).toInt(),
+            day: DateTime.parse(award['day'] as String),
+            closed: award['closed'] as bool,
+          ),
     userId: row['user_id'] as String,
     displayName: (user['display_name'] as String?) ?? 'Rival',
     alias: user['alias'] as String?,
