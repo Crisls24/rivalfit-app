@@ -73,9 +73,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final isTraining = _index == 0;
     return NavigationBarTheme(
       data: NavigationBarThemeData(
-        backgroundColor: isTraining
-            ? TrainingView.backgroundColor
-            : Colors.white,
+        backgroundColor: Colors.white,
         indicatorColor: isTraining
             ? Colors.transparent
             : AppColors.volt.withValues(alpha: 0.28),
