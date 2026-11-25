@@ -60,6 +60,7 @@ GoogleService-Info.plist
 infra/*
 !infra/sql/
 infra/sql/*
+!infra/sql/league_standings_v2.sql
 !infra/sql/league_identity.sql
 !infra/sql/training_sessions_v1.sql
 
