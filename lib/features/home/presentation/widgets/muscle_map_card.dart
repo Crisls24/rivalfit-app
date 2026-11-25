@@ -13,14 +13,20 @@ const _groups = [MuscleGroup.chestArms, MuscleGroup.core, MuscleGroup.legs];
 class MuscleMapCard extends StatefulWidget {
   final int legReps;
   final int chestArmReps;
-  const MuscleMapCard({super.key, this.legReps = 0, this.chestArmReps = 0});
+  final MuscleGroup initialGroup;
+  const MuscleMapCard({
+    super.key,
+    this.legReps = 0,
+    this.chestArmReps = 0,
+    this.initialGroup = MuscleGroup.legs,
+  });
 
   @override
   State<MuscleMapCard> createState() => _MuscleMapCardState();
 }
 
 class _MuscleMapCardState extends State<MuscleMapCard> {
-  MuscleGroup _selected = MuscleGroup.legs;
+  late MuscleGroup _selected = widget.initialGroup;
 
   void _select(MuscleGroup group) {
     if (group == _selected) return;
@@ -99,20 +105,10 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
                             }
                           }
                         },
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            const _MuscleBody(),
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                painter: _MuscleOutline(
-                                  _selected,
-                                  legsEarned: widget.legReps > 0,
-                                  chestArmsEarned: widget.chestArmReps > 0,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: MuscleBodyMap(
+                          legReps: widget.legReps,
+                          chestArmReps: widget.chestArmReps,
+                          selected: _selected,
                         ),
                       );
                     },
@@ -134,6 +130,52 @@ class _MuscleMapCardState extends State<MuscleMapCard> {
       ),
     );
   }
+}
+
+/// Shared artwork. The optional outline is used by the interactive map.
+class MuscleBodyMap extends StatelessWidget {
+  const MuscleBodyMap({
+    super.key,
+    required this.legReps,
+    required this.chestArmReps,
+    this.selected,
+  });
+  final int legReps;
+  final int chestArmReps;
+  final MuscleGroup? selected;
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+    aspectRatio: _artSize.aspectRatio,
+    child: Stack(
+      fit: StackFit.expand,
+      children: [
+        const _MuscleBody(),
+        RepaintBoundary(
+          child: CustomPaint(
+            painter: _MuscleOutline(
+              selected,
+              legsEarned: legReps > 0,
+              chestArmsEarned: chestArmReps > 0,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class MuscleRank {
+  const MuscleRank(this.reps);
+  final int reps;
+  String get label => reps > 0 ? 'Bronce' : 'Sin entrenar';
+  ProgressEmblemFinish get finish =>
+      reps > 0 ? ProgressEmblemFinish.bronze : ProgressEmblemFinish.steel;
+  Widget shield(double size) => ProgressEmblem(
+    icon: reps > 0 ? Icons.star_rounded : Icons.star_outline_rounded,
+    finish: finish,
+    size: size,
+  );
 }
 
 class _MuscleBody extends StatelessWidget {
@@ -179,13 +221,7 @@ class _MuscleDetail extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ProgressEmblem(
-              icon: reps > 0 ? Icons.star_rounded : Icons.star_outline_rounded,
-              finish: reps > 0
-                  ? ProgressEmblemFinish.bronze
-                  : ProgressEmblemFinish.steel,
-              size: 40,
-            ),
+            MuscleRank(reps).shield(40),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -200,7 +236,7 @@ class _MuscleDetail extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    reps == 0 ? 'Sin entrenar' : 'Bronce',
+                    MuscleRank(reps).label,
                     style: TextStyle(
                       color: reps > 0
                           ? ProgressEmblemFinish.bronze.highlight
@@ -244,7 +280,7 @@ class _MuscleDetail extends StatelessWidget {
 }
 
 class _MuscleOutline extends CustomPainter {
-  final MuscleGroup group;
+  final MuscleGroup? group;
   final bool legsEarned;
   final bool chestArmsEarned;
 
@@ -276,8 +312,9 @@ class _MuscleOutline extends CustomPainter {
           ).createShader(region.getBounds()),
       );
     }
+    if (group == null) return;
     canvas.drawPath(
-      _scaledRegion(group, size),
+      _scaledRegion(group!, size),
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeJoin = StrokeJoin.round
