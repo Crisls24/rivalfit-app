@@ -430,6 +430,10 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
       builder: (context, _) {
         final phase = _session.phase;
         final finished = phase == TrainingPhase.finished;
+        final showingGuide = !finished && !_cameraRequested;
+        final background = showingGuide
+            ? Colors.white
+            : AppColors.iceBackground;
         final record = finished
             ? saved
                   .where((r) => r.result.sessionId == _session.sessionId)
@@ -448,10 +452,20 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
           child: Theme(
             data: theme,
             child: Scaffold(
-              backgroundColor: AppColors.iceBackground,
+              backgroundColor: background,
               appBar: AppBar(
-                backgroundColor: AppColors.iceBackground,
+                backgroundColor: background,
                 foregroundColor: AppColors.carbon,
+                scrolledUnderElevation: showingGuide ? 0 : null,
+                toolbarHeight: showingGuide ? 64 : null,
+                titleTextStyle: showingGuide
+                    ? const TextStyle(
+                        color: AppColors.carbon,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -.6,
+                      )
+                    : null,
                 leading: IconButton(
                   onPressed: _requestExit,
                   icon: const Icon(Icons.arrow_back_rounded),
@@ -489,6 +503,7 @@ class _TrainingSessionPageState extends ConsumerState<TrainingSessionPage>
                           : TrainingSetupGuide(
                               movement: widget.movement,
                               onStart: _openCamera,
+                              audioEnabled: _audioEnabled,
                             ),
                     ),
             ),
