@@ -1,14 +1,10 @@
-import '../widgets/league_training_action.dart';
+import '../widgets/league_card.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
-import 'package:rivalfit/features/league/domain/models/league.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
-import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
 
 /// Clasificacion completa de la liga (hasta 10 miembros). Se abre desde la tab
 /// Liga; usa el estado del [leagueControllerProvider] compartido, asi que no
@@ -36,16 +32,16 @@ class _LeagueRankingPageState extends ConsumerState<LeagueRankingPage> {
     final state = ref.watch(leagueControllerProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDeep,
+      backgroundColor: AppColors.base,
       appBar: AppBar(
-        backgroundColor: AppColors.backgroundDeep,
+        backgroundColor: AppColors.base,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: const BackButton(color: Colors.white),
+        leading: const BackButton(color: AppColors.carbon),
         title: const Text(
           'Clasificación',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.carbon,
             fontSize: 20,
             fontWeight: FontWeight.w900,
           ),
@@ -64,139 +60,8 @@ class _LeagueRankingPageState extends ConsumerState<LeagueRankingPage> {
         _ =>
           state.league == null
               ? const _NoLeagueView()
-              : _RankingList(
-                  league: state.league!,
-                  ranking: state.ranking,
-                  currentUserId: ref.watch(authControllerProvider).user?.id,
-                ),
+              : JoinedLeagueView(state: state),
       },
-    );
-  }
-}
-
-class _RankingList extends StatelessWidget {
-  final League league;
-  final List<LeagueMember> ranking;
-  final String? currentUserId;
-
-  const _RankingList({
-    required this.league,
-    required this.ranking,
-    required this.currentUserId,
-  });
-
-  bool get _isFull => ranking.length >= league.maxMembers;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
-      children: [
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF171717), Color(0xFF0D0D0D)],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Row(
-            children: [
-              LeagueBadge(
-                photoUrl: league.photoUrl,
-                size: 42,
-                background: AppColors.volt.withValues(alpha: 0.18),
-                borderColor: AppColors.volt.withValues(alpha: 0.25),
-                radius: 13,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      league.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${ranking.length}/${league.maxMembers} integrantes',
-                      style: TextStyle(
-                        color: AppColors.textGray,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_isFull)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.volt.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Text(
-                    'COMPLETA',
-                    style: TextStyle(
-                      color: AppColors.carbon,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 22),
-        LeagueTrainingAction(ranking: ranking, currentUserId: currentUserId),
-        Text(
-          'Esta semana',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (ranking.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            child: Text(
-              'Aún no hay puntos esta semana. ¡Haz tu primer entrenamiento!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textGray,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-              ),
-            ),
-          )
-        else
-          for (var i = 0; i < ranking.length; i++)
-            MemberTile(
-              member: ranking[i],
-              position: i + 1,
-              isSelf: ranking[i].userId == currentUserId,
-            ),
-      ],
     );
   }
 }

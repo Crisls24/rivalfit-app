@@ -1,573 +1,284 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/features/league/domain/models/league.dart';
-import 'package:rivalfit/features/league/presentation/widgets/league_emblem_icon.dart';
-import 'package:rivalfit/features/league/presentation/widgets/member_tile.dart';
+import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
+import 'package:rivalfit/features/exercise/domain/models/saved_training_session.dart';
+import 'package:rivalfit/features/exercise/presentation/controllers/training_storage_providers.dart';
+import 'package:rivalfit/features/home/presentation/training_progress.dart';
 
-/// Card principal de la liga ya creada: cabecera con icono, codigo y apuesta,
-/// top 5 de la clasificacion, invitacion y preview de amigos.
-class LeagueCard extends StatelessWidget {
-  final League league;
-  final List<LeagueMember> ranking;
-  final bool rankingLoading;
-  final String? rankingError;
-  final String? photoError;
-  final VoidCallback onRetryRanking;
-  final VoidCallback onRetryPhoto;
-  final String? currentUserId;
-  final VoidCallback onInvite;
-  final VoidCallback onOpenRanking;
-  final VoidCallback onLeave;
+import '../../domain/models/league.dart';
+import '../controllers/league_controller.dart';
+import '../controllers/league_providers.dart';
+import 'invite_sheet.dart';
+import 'league_emblem_icon.dart';
+import 'league_standings.dart';
+import 'league_training_action.dart';
 
-  const LeagueCard({
-    super.key,
-    required this.league,
-    required this.ranking,
-    required this.rankingLoading,
-    required this.rankingError,
-    required this.photoError,
-    required this.onRetryRanking,
-    required this.onRetryPhoto,
-    required this.currentUserId,
-    required this.onInvite,
-    required this.onOpenRanking,
-    required this.onLeave,
-  });
-
-  int get _memberCount =>
-      ranking.length > league.memberCount ? ranking.length : league.memberCount;
-  bool get _isFull => _memberCount >= league.maxMembers;
+class JoinedLeagueView extends ConsumerWidget {
+  const JoinedLeagueView({super.key, required this.state});
+  final LeagueState state;
 
   @override
-  Widget build(BuildContext context) {
-    final hasSocialBet = (league.socialBet ?? '').trim().isNotEmpty;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final league = state.league!;
+    final currentId = ref.watch(authControllerProvider).user?.id;
+    final controller = ref.read(leagueControllerProvider.notifier);
+    final roster = state.ranking;
+    final full =
+        roster.length >= league.maxMembers ||
+        league.memberCount >= league.maxMembers;
+    final solo = roster.length == 1 && !full;
+    final canInvite = !full && (roster.isNotEmpty || league.memberCount > 0);
+    void invite() => showInviteSheet(context, league);
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF171717), Color(0xFF0D0D0D)],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.glassBorder),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.volt.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _LeagueHeader(
-            league: league,
-            isFull: _isFull,
-            memberCount: _memberCount,
-            onLeave: onLeave,
-            hasSocialBet: hasSocialBet,
-          ),
-          if (photoError != null) ...[
-            const SizedBox(height: 8),
-            Text(photoError!, style: const TextStyle(color: Colors.white70)),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: onRetryPhoto,
-                child: const Text('Reintentar foto'),
-              ),
-            ),
-          ],
-          if (_memberCount <= 1 && !_isFull) ...[
-            const SizedBox(height: 12),
-            _InviteButton(onTap: onInvite),
-          ],
-          if (hasSocialBet) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: AppColors.volt.withValues(alpha: 0.12),
-                border: Border.all(
-                  color: AppColors.volt.withValues(alpha: 0.25),
-                ),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.whatshot_rounded,
-                    size: 14,
-                    color: AppColors.volt,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      league.socialBet!,
-                      maxLines: 2,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
+    // On older servers only the signed-in member has confirmed history available.
+    var members = roster;
+    if (currentId != null &&
+        roster.any((m) => m.userId == currentId && m.legReps == null)) {
+      final sessions = ref.watch(savedTrainingSessionsProvider).valueOrNull;
+      if (sessions != null) {
+        final mine =
+            sessions
+                .where(
+                  (s) =>
+                      s.ownerId == currentId &&
+                      s.state == SavedSessionState.confirmed &&
+                      s.result.eligibleForSubmission,
+                )
+                .toList()
+              ..sort(
+                (a, b) => b.result.endedAtUtc.compareTo(a.result.endedAtUtc),
+              );
+        final progress = TrainingProgress.fromSessions(mine);
+        final last = mine.firstOrNull?.result;
+        members = [
+          for (final m in roster)
+            if (m.userId != currentId)
+              m
+            else
+              LeagueMember(
+                userId: m.userId,
+                displayName: m.displayName,
+                alias: m.alias,
+                photoUrl: m.photoUrl,
+                joinedAt: m.joinedAt,
+                weeklyPoints: m.weeklyPoints,
+                position: m.position,
+                legReps: progress.legReps,
+                chestArmReps: progress.chestArmReps,
+                lastSession: last == null
+                    ? null
+                    : (
+                        exercise: last.exerciseId,
+                        reps: last.validReps,
+                        endedAt: last.endedAtUtc,
                       ),
-                    ),
-                  ),
-                ],
               ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          Divider(color: Colors.white.withValues(alpha: 0.08)),
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Clasificación',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              InkWell(
-                onTap: onOpenRanking,
-                borderRadius: BorderRadius.circular(10),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                  child: Text(
-                    'VER CLASIFICACIÓN  →',
-                    style: TextStyle(
-                      color: AppColors.volt,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (rankingError != null) ...[
-            const Text(
-              'No pudimos cargar la clasificación.',
-              style: TextStyle(color: Colors.white70),
-            ),
-            TextButton(
-              onPressed: onRetryRanking,
-              child: const Text('Reintentar clasificación'),
-            ),
-          ] else if (rankingLoading && ranking.isEmpty)
-            const LinearProgressIndicator(color: AppColors.volt)
-          else if (ranking.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Text(
-                'Aún no hay repeticiones esta semana. ¡Invita a tus amigos!',
-                style: TextStyle(
-                  color: AppColors.textGray,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          else
-            ...List.generate(
-              ranking.length.clamp(0, 5),
-              (i) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: MemberTile(
-                  member: ranking[i],
-                  position: i + 1,
-                  isSelf: ranking[i].userId == currentUserId,
-                ),
-              ),
-            ),
-          const SizedBox(height: 12),
-          if (_isFull)
-            const _FullBadge()
-          else if (_memberCount > 1)
-            _InviteButton(onTap: onInvite),
-          const SizedBox(height: 18),
-          Divider(color: Colors.white.withValues(alpha: 0.08)),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'AMIGOS',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
-                ),
-              ),
-              InkWell(
-                onTap: onOpenRanking,
-                borderRadius: BorderRadius.circular(10),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                  child: Text(
-                    'VER TODOS  →',
-                    style: TextStyle(
-                      color: AppColors.volt,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _FriendsPreview(
-            members: ranking.take(3).toList(),
-            onInvite: onInvite,
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: TextButton(
-              onPressed: onLeave,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.textGray,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              child: const Text('Salir de la liga'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LeagueHeader extends StatelessWidget {
-  final League league;
-  final bool isFull;
-  final int memberCount;
-  final VoidCallback onLeave;
-  final bool hasSocialBet;
-
-  const _LeagueHeader({
-    required this.league,
-    required this.isFull,
-    required this.memberCount,
-    required this.onLeave,
-    required this.hasSocialBet,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        LeagueBadge(
-          photoUrl: league.photoUrl,
-          size: 50,
-          background: AppColors.volt.withValues(alpha: 0.14),
-          borderColor: AppColors.volt.withValues(alpha: 0.28),
-          radius: 16,
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                league.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '$memberCount de ${league.maxMembers} integrantes',
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-              const SizedBox(height: 6),
-              _CodeChip(code: league.code),
-            ],
-          ),
-        ),
-        if (isFull)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.volt.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Text(
-              'COMPLETA',
-              style: TextStyle(
-                color: AppColors.carbon,
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.4,
-              ),
-            ),
-          )
-        else if (!hasSocialBet)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            ),
-            child: const Text(
-              'SEMANAL',
-              style: TextStyle(
-                color: AppColors.textGray,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.4,
-              ),
-            ),
-          ),
-        const SizedBox(width: 6),
-        IconButton(
-          onPressed: onLeave,
-          tooltip: 'Salir de la liga',
-          icon: const Icon(
-            Icons.logout_rounded,
-            size: 20,
-            color: AppColors.textGray,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CodeChip extends StatelessWidget {
-  final String code;
-
-  const _CodeChip({required this.code});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        await Clipboard.setData(ClipboardData(text: code));
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Código $code copiado')));
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Código $code',
-              style: const TextStyle(
-                color: AppColors.textGray,
-                fontSize: 10.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.copy_rounded, size: 12, color: AppColors.textGray),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InviteButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _InviteButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.volt,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.person_add_alt_1_rounded,
-                size: 18,
-                color: AppColors.carbon,
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Invitar amigos',
-                style: TextStyle(
-                  color: AppColors.carbon,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FullBadge extends StatelessWidget {
-  const _FullBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.block_rounded, size: 18, color: AppColors.textGray),
-          const SizedBox(width: 8),
-          Text(
-            'Liga completa · espera la próxima semana',
-            style: TextStyle(
-              color: AppColors.textGray,
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FriendsPreview extends StatelessWidget {
-  final List<LeagueMember> members;
-  final VoidCallback onInvite;
-
-  const _FriendsPreview({required this.members, required this.onInvite});
-
-  @override
-  Widget build(BuildContext context) {
-    if (members.isEmpty) {
-      return Text(
-        'Invita a tus amigos para llenar la liga.',
-        style: TextStyle(
-          color: AppColors.textGray,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      );
+        ];
+      }
     }
-    return Wrap(
-      spacing: 10,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final member in members) _FriendPill(member: member),
-        if (members.length < 3)
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: InkWell(
-              onTap: onInvite,
-              borderRadius: BorderRadius.circular(20),
-              child: const Padding(
-                padding: EdgeInsets.all(2),
-                child: Icon(
-                  Icons.add_circle_outline_rounded,
-                  size: 20,
-                  color: AppColors.textGray,
+
+    final light = ThemeData(
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.volt,
+        surface: AppColors.base,
+      ),
+      textTheme: Theme.of(context).textTheme
+          .apply(bodyColor: AppColors.carbon, displayColor: AppColors.carbon),
+    );
+    return Theme(
+      data: light,
+      child: Material(
+        color: AppColors.base,
+        child: SafeArea(
+          bottom: false,
+          child: RefreshIndicator(
+            onRefresh: controller.loadRanking,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
+              children: [
+                const Text(
+                  'RivalFit',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: -1.2,
+                  ),
                 ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    LeagueBadge(
+                      size: 52,
+                      photoUrl: league.photoUrl,
+                      background: AppColors.carbon,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            league.name,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                            ),
+                          ),
+                          if (league.socialBet?.trim().isNotEmpty == true)
+                            Text(
+                              league.socialBet!,
+                              style: const TextStyle(color: AppColors.grayMain),
+                            ),
+                        ],
+                      ),
+                    ),
+                    if (canInvite && !solo)
+                      IconButton.filled(
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.volt,
+                          foregroundColor: AppColors.carbon,
+                        ),
+                        tooltip: 'Invitar amigos',
+                        onPressed: invite,
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
+                      ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Opciones de la liga',
+                      onSelected: (value) async {
+                        if (value == 'leave') {
+                          await _confirmLeave(context, ref);
+                          return;
+                        }
+                        await Clipboard.setData(
+                          ClipboardData(text: league.code),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Código ${league.code} copiado'),
+                            ),
+                          );
+                        }
+                      },
+                      itemBuilder: (_) => [
+                        PopupMenuItem(
+                          value: 'code',
+                          child: Text('Copiar código · ${league.code}'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'leave',
+                          child: Text('Salir de la liga'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (solo)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.volt,
+                        foregroundColor: AppColors.carbon,
+                      ),
+                      onPressed: invite,
+                      icon: const Icon(Icons.person_add_alt_1),
+                      label: const Text('Invitar amigos'),
+                    ),
+                  ),
+                if (full)
+                  const Text(
+                    'Liga completa',
+                    style: TextStyle(color: AppColors.grayMain),
+                  ),
+                if (state.photoError != null)
+                  TextButton(
+                    onPressed: controller.retryPhoto,
+                    child: Text('${state.photoError} Reintentar foto'),
+                  ),
+                if (state.rankingError != null)
+                  TextButton(
+                    onPressed: controller.loadRanking,
+                    child: Text(
+                      '${state.rankingError} Reintentar clasificación',
+                    ),
+                  ),
+                if (state.rankingLoading && roster.isEmpty)
+                  const LinearProgressIndicator(),
+                if (members.isNotEmpty)
+                  LeagueStandings(members: members, currentUserId: currentId)
+                else if (!state.rankingLoading && state.rankingError == null)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Text('Clasificación sin integrantes disponibles.'),
+                  ),
+                const SizedBox(height: 16),
+                const LeagueTrainingAction(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmLeave(BuildContext context, WidgetRef ref) async {
+    final league = ref.read(leagueControllerProvider).league;
+    if (league == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          '¿Salir de la liga?',
+          style: TextStyle(
+            color: AppColors.carbon,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        content: Text(
+          'Perderás tu lugar en "${league.name}". Podrás volver solo con un nuevo código de invitación.',
+          style: const TextStyle(
+            color: AppColors.grayMain,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(
+                color: AppColors.grayMain,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-      ],
-    );
-  }
-}
-
-class _FriendPill extends StatelessWidget {
-  final LeagueMember member;
-
-  const _FriendPill({required this.member});
-
-  @override
-  Widget build(BuildContext context) {
-    final photo = member.photoUrl;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: const BoxDecoration(
-              color: AppColors.backgroundDark,
-              shape: BoxShape.circle,
-            ),
-            child: ClipOval(
-              child: photo != null && photo.isNotEmpty
-                  ? Image.network(photo, fit: BoxFit.cover)
-                  : Center(
-                      child: Text(
-                        initialsFor(member.displayName)[0],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            '@${member.alias ?? member.displayName}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text(
+              'Salir',
+              style: TextStyle(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
         ],
       ),
     );
+    if (confirmed != true || !context.mounted) return;
+    final error = await ref.read(leagueControllerProvider.notifier).leave();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error ?? 'Saliste de la liga')));
   }
 }

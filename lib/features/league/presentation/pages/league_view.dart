@@ -1,20 +1,14 @@
-import '../widgets/league_training_action.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
-import 'package:rivalfit/features/auth/presentation/controllers/auth_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_controller.dart';
 import 'package:rivalfit/features/league/presentation/controllers/league_providers.dart';
-import 'package:rivalfit/features/league/presentation/widgets/invite_sheet.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_card.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_dialogs.dart';
 import 'package:rivalfit/features/league/presentation/widgets/league_state_views.dart';
 
-/// Tab "Liga": compite contra tus amigos y demuestra tu disciplina. Sin liga
-/// muestra la accion de crear/unirse; con liga muestra la clasificacion top 5,
-/// el enlace de invitacion (o el aviso de liga completa) y el preview.
+/// Acceso a la liga del usuario o a los flujos de creación e invitación.
 class LeagueView extends ConsumerStatefulWidget {
   const LeagueView({super.key});
 
@@ -46,6 +40,10 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
   Widget build(BuildContext context) {
     final state = ref.watch(leagueControllerProvider);
 
+    if (state.status == LeagueStatus.loaded && state.league != null) {
+      return JoinedLeagueView(state: state);
+    }
+
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
@@ -76,11 +74,6 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
               ),
             ),
             const SizedBox(height: 24),
-            if (state.status == LeagueStatus.loaded && state.league != null)
-              LeagueTrainingAction(
-                ranking: state.ranking,
-                currentUserId: ref.watch(authControllerProvider).user?.id,
-              ),
             switch (state.status) {
               LeagueStatus.loading => const LeagueLoadingCard(),
               LeagueStatus.error => LeagueErrorCard(
@@ -88,33 +81,11 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
                 onRetry: () =>
                     ref.read(leagueControllerProvider.notifier).retry(),
               ),
-              _ =>
-                state.league == null
-                    ? LeagueEmptyState(
-                        onCreate: _openCreateDialog,
-                        onJoin: _openJoinDialog,
-                        onInviteFriends: () => showShareRivalFitSheet(context),
-                      )
-                    : LeagueCard(
-                        league: state.league!,
-                        ranking: state.ranking,
-                        rankingLoading: state.rankingLoading,
-                        rankingError: state.rankingError,
-                        photoError: state.photoError,
-                        onRetryRanking: ref
-                            .read(leagueControllerProvider.notifier)
-                            .loadRanking,
-                        onRetryPhoto: ref
-                            .read(leagueControllerProvider.notifier)
-                            .retryPhoto,
-                        currentUserId: ref
-                            .watch(authControllerProvider)
-                            .user
-                            ?.id,
-                        onInvite: () => showInviteSheet(context, state.league!),
-                        onOpenRanking: () => context.push('/league/ranking'),
-                        onLeave: _confirmLeave,
-                      ),
+              _ => LeagueEmptyState(
+                onCreate: _openCreateDialog,
+                onJoin: _openJoinDialog,
+                onInviteFriends: () => showShareRivalFitSheet(context),
+              ),
             },
           ],
         ),
@@ -153,60 +124,5 @@ class _LeagueViewState extends ConsumerState<LeagueView> {
       if (editCode != true) return;
       initialCode = code;
     }
-  }
-
-  Future<void> _confirmLeave() async {
-    final league = ref.read(leagueControllerProvider).league;
-    if (league == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          '¿Salir de la liga?',
-          style: TextStyle(
-            color: AppColors.carbon,
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-          ),
-        ),
-        content: Text(
-          'Perderás tu lugar en "${league.name}". Podrás volver solo con un nuevo código de invitación.',
-          style: const TextStyle(
-            color: AppColors.grayMain,
-            fontSize: 13,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(
-                color: AppColors.grayMain,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text(
-              'Salir',
-              style: TextStyle(
-                color: AppColors.danger,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final error = await ref.read(leagueControllerProvider.notifier).leave();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(error ?? 'Saliste de la liga')));
   }
 }
