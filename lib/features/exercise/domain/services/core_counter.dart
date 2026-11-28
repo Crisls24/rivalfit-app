@@ -63,10 +63,12 @@ class CorePoseGate {
       reset();
       return CoreObservation(
         timestamp: timestamp,
-        readiness: const PostureReadiness(
+        readiness: PostureReadiness(
           false,
           false,
-          'Deja visibles el torso y los pies.',
+          plank
+              ? 'Deja visibles el hombro, el codo, la cadera y el tobillo de un lado.'
+              : 'Aléjate hasta que se vean los hombros, las rodillas y los tobillos.',
         ),
         side: side,
       );
@@ -83,15 +85,23 @@ class CorePoseGate {
     final tilt = math.atan2(rise, horizontal) * 180 / math.pi;
     final knee = jointAngle([hip, points[2], ankle], aspectRatio);
     final elbow = points.last;
-    final aligned =
-        torsoLength >= .075 &&
-        (plank
-            ? tilt.abs() <= 30 &&
-                  knee >= 145 &&
-                  jointAngle([shoulder, hip, ankle], aspectRatio) >= 155 &&
-                  elbow.y - shoulder.y >= .04 &&
-                  (elbow.x - shoulder.x).abs() * aspectRatio < torsoLength * .8
-            : knee >= 45 && knee <= 135 && ankle.y >= hip.y - .03);
+    final alignmentHint = switch (plank) {
+      _ when torsoLength < .075 =>
+        'Gira un poco de lado para que se distingan tu hombro y tu cadera.',
+      true when knee < 145 => 'Estira las piernas y apóyate en los pies.',
+      true
+          when tilt.abs() > 30 ||
+              jointAngle([shoulder, hip, ankle], aspectRatio) < 155 =>
+        'Alinea hombros, cadera y tobillos.',
+      true
+          when elbow.y - shoulder.y < .04 ||
+              (elbow.x - shoulder.x).abs() * aspectRatio >= torsoLength * .8 =>
+        'Coloca los codos debajo de los hombros.',
+      false when knee < 45 || knee > 135 || ankle.y < hip.y - .03 =>
+        'Flexiona las rodillas y mantén los pies apoyados.',
+      _ => null,
+    };
+    final aligned = alignmentHint == null;
     final starting = aligned && (plank || tilt.abs() <= 18);
     if (starting) {
       _stableSince ??= timestamp;
@@ -106,11 +116,12 @@ class CorePoseGate {
       readiness: PostureReadiness(
         true,
         ready,
-        ready
-            ? 'Postura lista'
-            : plank
-            ? 'Apoya los antebrazos y alinea hombros, cadera y pies.'
-            : 'Recuéstate boca arriba con las rodillas flexionadas.',
+        alignmentHint ??
+            (ready
+                ? 'Postura lista'
+                : starting
+                ? 'Mantén la posición un momento.'
+                : 'Baja los hombros para empezar.'),
       ),
       side: side,
       aligned: aligned,

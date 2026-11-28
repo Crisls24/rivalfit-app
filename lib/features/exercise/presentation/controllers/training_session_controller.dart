@@ -115,6 +115,13 @@ class TrainingSessionController extends ChangeNotifier {
           :final aligned,
         ) =>
           'side=${side?.name} elbow=${elbowAngle.toStringAsFixed(1)} height=${shoulderHeight.toStringAsFixed(3)} aligned=$aligned ',
+        CoreObservation(
+          :final side,
+          :final torsoTilt,
+          :final kneeAngle,
+          :final aligned,
+        ) =>
+          'side=$side tilt=${torsoTilt.toStringAsFixed(1)} knee=${kneeAngle.toStringAsFixed(1)} aligned=$aligned ',
         _ => '',
       };
       debugPrint(
@@ -141,8 +148,8 @@ class TrainingSessionController extends ChangeNotifier {
       if (!usable && !lost) {
         _lastHold = null;
         if (observation is PushUpObservation &&
-            observation.readiness.bodyVisible &&
-            !observation.aligned) {
+            observation.readiness.bodyVisible) {
+          // Re-arm after an alignment error or a change of the visible side.
           _counter.reset();
         } else {
           _counter.interruptStability();
@@ -192,16 +199,25 @@ class TrainingSessionController extends ChangeNotifier {
       if (holdDuration.inSeconds != before) notifyListeners();
     }
     final counted = _counter.observe(observation);
-    _setFeedback(_counter.instruction);
+    _setFeedback(
+      _counter.phase == PushUpPhase.waitingForTop
+          ? observation.readiness.instruction
+          : _counter.instruction,
+    );
     if (counted) recordValidRep();
   }
 
   String _trackingInstruction(TrainingObservation observation) =>
-      observation is CoreObservation
-      ? observation.readiness.instruction
-      : observation.readiness.bodyVisible
-      ? 'Ajusta tu posición'
-      : 'Fuera de cuadro';
+      switch (observation) {
+        CoreObservation() ||
+        PushUpObservation() => observation.readiness.instruction,
+        SquatObservation()
+            when !observation.readiness.bodyVisible &&
+                observation.readiness.instruction.isNotEmpty =>
+          observation.readiness.instruction,
+        _ when observation.readiness.bodyVisible => 'Ajusta tu posición',
+        _ => 'Fuera de cuadro',
+      };
 
   void _watchTrackingLoss({required Duration elapsed}) {
     if (_trackingLossTimer != null) return;

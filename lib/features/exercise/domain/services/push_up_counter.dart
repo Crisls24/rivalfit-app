@@ -67,7 +67,7 @@ class PushUpPoseGate {
         readiness: const PostureReadiness(
           false,
           false,
-          'Mira hacia el celular y encuadra manos, cadera y pies.',
+          'Deja visibles el hombro, el codo, la mano, la cadera y el tobillo de un lado.',
         ),
         side: null,
         elbowAngle: double.nan,
@@ -84,12 +84,17 @@ class PushUpPoseGate {
     final length = math.sqrt(horizontal * horizontal + vertical * vertical);
     final elbowAngle = jointAngle([shoulder, elbow, wrist], aspectRatio);
     final shoulderHeight = (wrist.y - shoulder.y) / length;
-    final aligned =
-        horizontal >= 0.06 &&
-        vertical <= 0.85 * horizontal &&
-        jointAngle([shoulder, hip, ankle], aspectRatio) >= 155 &&
-        shoulderHeight.isFinite &&
-        shoulderHeight > 0;
+    final alignmentHint = switch (horizontal) {
+      < 0.06 => 'Gira un poco de lado para que se vea el largo de tu cuerpo.',
+      _
+          when vertical > 0.85 * horizontal ||
+              jointAngle([shoulder, hip, ankle], aspectRatio) < 155 =>
+        'Alinea hombros, cadera y tobillos.',
+      _ when !shoulderHeight.isFinite || shoulderHeight <= 0 =>
+        'Apoya las manos y colócate con los hombros sobre ellas.',
+      _ => null,
+    };
+    final aligned = alignmentHint == null;
     final extended = elbowAngle >= PushUpCounter.extendedAngle;
     if (aligned && extended) {
       _stableSince ??= timestamp;
@@ -104,11 +109,12 @@ class PushUpPoseGate {
       readiness: PostureReadiness(
         true,
         ready,
-        ready
-            ? 'Postura lista'
-            : !aligned
-            ? 'Coloca el celular al frente, un poco a un lado. Alinea hombros, cadera y tobillos.'
-            : 'Extiende los brazos y mantén la posición.',
+        alignmentHint ??
+            (ready
+                ? 'Postura lista'
+                : extended
+                ? 'Mantén la posición un momento.'
+                : 'Extiende los brazos para empezar.'),
       ),
       side: side,
       elbowAngle: elbowAngle,

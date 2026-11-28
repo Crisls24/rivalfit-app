@@ -1,8 +1,11 @@
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:rivalfit/app/theme/app_colors.dart';
 
+import '../../domain/models/posture_readiness.dart';
 import '../controllers/training_camera_controller.dart';
 
 class TrainingCameraPanel extends StatelessWidget {
@@ -51,7 +54,24 @@ class TrainingCameraPanel extends StatelessWidget {
                   fit: StackFit.expand,
                   children: [
                     Center(
-                      child: RepaintBoundary(child: CameraPreview(camera)),
+                      child: CameraPreview(
+                        camera,
+                        child: ClipRect(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _PoseSkeletonPainter(
+                                controller.poseFrame,
+                                mirrored:
+                                    camera.description.lensDirection ==
+                                    CameraLensDirection.front,
+                                color: controller.readiness.bodyVisible
+                                    ? AppColors.volt
+                                    : const Color(0xFFFFCF75),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                     if (countdown case final seconds?)
                       Center(
@@ -137,4 +157,90 @@ class TrainingCameraPanel extends StatelessWidget {
       );
     },
   );
+}
+
+typedef _Joint = PoseLandmarkType;
+
+class _PoseSkeletonPainter extends CustomPainter {
+  _PoseSkeletonPainter(
+    this.frame, {
+    required this.mirrored,
+    required this.color,
+  }) : super(repaint: frame);
+
+  final ValueListenable<Map<PoseLandmarkType, BodyPoint>> frame;
+  final bool mirrored;
+  final Color color;
+
+  static const _chains = [
+    [
+      _Joint.leftWrist,
+      _Joint.leftElbow,
+      _Joint.leftShoulder,
+      _Joint.rightShoulder,
+      _Joint.rightElbow,
+      _Joint.rightWrist,
+    ],
+    [
+      _Joint.leftShoulder,
+      _Joint.leftHip,
+      _Joint.leftKnee,
+      _Joint.leftAnkle,
+      _Joint.leftFootIndex,
+    ],
+    [
+      _Joint.rightShoulder,
+      _Joint.rightHip,
+      _Joint.rightKnee,
+      _Joint.rightAnkle,
+      _Joint.rightFootIndex,
+    ],
+    [_Joint.leftHip, _Joint.rightHip],
+    [_Joint.leftEar, _Joint.nose, _Joint.rightEar],
+  ];
+  static final _joints = _chains.expand((chain) => chain).toSet();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final points = <_Joint, Offset>{};
+    for (final joint in _joints) {
+      final point = frame.value[joint];
+      if (point != null &&
+          point.confidence >= .55 &&
+          point.x >= 0 &&
+          point.x <= 1 &&
+          point.y >= 0 &&
+          point.y <= 1) {
+        points[joint] = Offset(
+          (mirrored ? 1 - point.x : point.x) * size.width,
+          point.y * size.height,
+        );
+      }
+    }
+    final outline = Paint()
+      ..color = AppColors.carbon
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    final stroke = Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round;
+    for (final chain in _chains) {
+      for (var i = 1; i < chain.length; i++) {
+        final a = points[chain[i - 1]];
+        final b = points[chain[i]];
+        if (a == null || b == null) continue;
+        canvas.drawLine(a, b, outline);
+        canvas.drawLine(a, b, stroke);
+      }
+    }
+    for (final point in points.values) {
+      canvas.drawCircle(point, 4.25, outline);
+      canvas.drawCircle(point, 2.75, stroke);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PoseSkeletonPainter old) =>
+      old.frame != frame || old.mirrored != mirrored || old.color != color;
 }

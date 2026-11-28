@@ -151,6 +151,31 @@ void main() {
     expect(session.phase, TrainingPhase.active);
   });
 
+  test('a visible side switch discards the partial rep and re-arms', () {
+    final session = TrainingSessionController(
+      movement: TrainingMovement.pushUp,
+    );
+    addTearDown(session.dispose);
+    session.processObservation(frame(0, 170, .5));
+    session.start();
+    for (final sample in [
+      frame(150, 135, .43),
+      frame(300, 90, .32),
+      frame(500, 90, .32),
+      frame(650, 90, .32, side: PushUpSide.right),
+      frame(800, 170, .5, side: PushUpSide.right),
+      frame(950, 135, .43, side: PushUpSide.right),
+      frame(1100, 90, .32, side: PushUpSide.right),
+      frame(1300, 90, .32, side: PushUpSide.right),
+      frame(1500, 170, .5, side: PushUpSide.right),
+      frame(1800, 170, .5, side: PushUpSide.right),
+    ]) {
+      session.processObservation(sample);
+    }
+    expect(session.reps, 1);
+    expect(session.phase, TrainingPhase.active);
+  });
+
   test('push-up series retains its exercise and only confirmed reps count', () {
     final session = TrainingSessionController(
       movement: TrainingMovement.pushUp,

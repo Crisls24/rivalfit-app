@@ -37,6 +37,7 @@ class TrainingCameraController extends ChangeNotifier {
   final _pushUpGate = PushUpPoseGate();
   final _coreGate = CorePoseGate();
   final _clock = Stopwatch()..start();
+  final _poseFrame = ValueNotifier<Map<PoseLandmarkType, BodyPoint>>(const {});
   CameraController? _camera;
   PoseDetector? _detector;
   Future<void> _operations = Future.value();
@@ -58,6 +59,7 @@ class TrainingCameraController extends ChangeNotifier {
   TrainingCameraStatus get status => _status;
   PostureReadiness get readiness => _readiness;
   String? get error => _error;
+  ValueListenable<Map<PoseLandmarkType, BodyPoint>> get poseFrame => _poseFrame;
 
   Future<void> activate() {
     if (_closed) return Future.value();
@@ -190,7 +192,10 @@ class TrainingCameraController extends ChangeNotifier {
         DeviceOrientation.portraitDown: 180,
         DeviceOrientation.landscapeRight: 270,
       };
-      final deviceRotation = orientations[controller.value.deviceOrientation]!;
+      final orientation =
+          controller.value.lockedCaptureOrientation ??
+          controller.value.deviceOrientation;
+      final deviceRotation = orientations[orientation]!;
       final description = controller.description;
       final degrees = description.lensDirection == CameraLensDirection.front
           ? (description.sensorOrientation + deviceRotation) % 360
@@ -235,11 +240,14 @@ class TrainingCameraController extends ChangeNotifier {
           rotation == InputImageRotation.rotation270deg;
       final width = (sideways ? image.height : image.width).toDouble();
       final height = (sideways ? image.width : image.height).toDouble();
-      List<BodyPoint> points(List<PoseLandmarkType> types) =>
-          types.where(pose.landmarks.containsKey).map((type) {
-            final p = pose.landmarks[type]!;
-            return BodyPoint(p.x / width, p.y / height, p.likelihood);
-          }).toList();
+      final landmarks = {
+        for (final p in pose.landmarks.values)
+          p.type: BodyPoint(p.x / width, p.y / height, p.likelihood),
+      };
+      _poseFrame.value = Map.unmodifiable(landmarks);
+      List<BodyPoint> points(List<PoseLandmarkType> types) => [
+        for (final type in types) ?landmarks[type],
+      ];
       final timestamp = _clock.elapsed;
       final aspectRatio = width / height;
       if (movement == TrainingMovement.crunch ||
@@ -330,6 +338,7 @@ class TrainingCameraController extends ChangeNotifier {
     } catch (_) {
       if (!_closed && _wanted) {
         _resetPoseGate();
+        _poseFrame.value = const {};
         _update(
           const PostureReadiness(
             false,
@@ -346,6 +355,7 @@ class TrainingCameraController extends ChangeNotifier {
   }
 
   void _reportTrackingLoss(PostureReadiness readiness) {
+    _poseFrame.value = const {};
     onObservation?.call(
       TrainingObservation(timestamp: _clock.elapsed, readiness: readiness),
     );
@@ -372,6 +382,7 @@ class TrainingCameraController extends ChangeNotifier {
     _watchdog?.cancel();
     _watchdog = null;
     _resetPoseGate();
+    if (!_closed) _poseFrame.value = const {};
     _readiness = const PostureReadiness(
       false,
       false,
@@ -403,6 +414,7 @@ class TrainingCameraController extends ChangeNotifier {
     _wanted = false;
     _clock.stop();
     _watchdog?.cancel();
+    _poseFrame.dispose();
     unawaited(_enqueue(_release));
     super.dispose();
   }

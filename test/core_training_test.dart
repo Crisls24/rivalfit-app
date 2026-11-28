@@ -34,23 +34,30 @@ void main() {
 
   test('plank requires aligned legs and an elbow under the shoulder', () {
     final gate = CorePoseGate();
-    CoreObservation pose(int ms, {double hip = .54}) => gate.evaluate(
-      left: [
-        const BodyPoint(.25, .48, .99),
-        BodyPoint(.46, hip, .99),
-        const BodyPoint(.63, .59, .99),
-        const BodyPoint(.79, .64, .99),
-        const BodyPoint(.26, .64, .99),
-      ],
-      right: const [],
-      timestamp: Duration(milliseconds: ms),
-      aspectRatio: 1,
-      plank: true,
-    );
+    CoreObservation pose(int ms, {double hip = .54, double elbowX = .26}) =>
+        gate.evaluate(
+          left: [
+            const BodyPoint(.25, .48, .99),
+            BodyPoint(.46, hip, .99),
+            const BodyPoint(.63, .59, .99),
+            const BodyPoint(.79, .64, .99),
+            BodyPoint(elbowX, .64, .99),
+          ],
+          right: const [],
+          timestamp: Duration(milliseconds: ms),
+          aspectRatio: 1,
+          plank: true,
+        );
     expect(pose(0).readiness.initialPostureReady, isFalse);
     expect(pose(550).readiness.initialPostureReady, isTrue);
     expect(pose(700, hip: .40).aligned, isFalse);
     expect(pose(800).readiness.initialPostureReady, isFalse);
+    final misplacedElbow = pose(900, elbowX: .6);
+    expect(misplacedElbow.aligned, isFalse);
+    expect(
+      misplacedElbow.readiness.instruction,
+      'Coloca los codos debajo de los hombros.',
+    );
   });
 
   test('personal results retain their units without league eligibility', () {
