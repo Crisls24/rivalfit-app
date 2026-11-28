@@ -13,6 +13,7 @@ import 'core/deeplinks/deep_link_parser.dart';
 import 'features/auth/presentation/controllers/auth_controller.dart';
 import 'features/auth/presentation/controllers/auth_providers.dart';
 import 'features/auth/presentation/controllers/recovery_controller.dart';
+import 'features/league/data/repositories/demo_league_repository.dart';
 import 'features/league/presentation/controllers/league_providers.dart';
 
 Future<void> main() async {
@@ -63,6 +64,12 @@ Future<void> main() async {
       overrides: [
         initialDeepLinkProvider.overrideWithValue(initialLink),
         oauthPendingProvider.overrideWithValue(oauthPending),
+        if (const bool.fromEnvironment('LEAGUE_DEMO_DATA'))
+          leagueRepositoryProvider.overrideWithValue(
+            DemoLeagueRepository(
+              () => Supabase.instance.client.auth.currentUser?.id,
+            ),
+          ),
       ],
       child: const RivalFitApp(),
     ),
